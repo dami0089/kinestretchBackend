@@ -43,6 +43,10 @@ const clienteSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
+    isActivo: {
+      type: Boolean,
+      default: true,
+    },
     observaciones: [
       {
         type: String,

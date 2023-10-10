@@ -1,13 +1,20 @@
 import Cliente from "../models/Cliente.js";
-
+import dotenv from "dotenv";
 import Usuario from "../models/Usuario.js";
+dotenv.config();
 
 import { enviarMensaje } from "../whatsappbot.js";
+import generarId from "../helpers/generarId.js";
+import { emailRegistro } from "../helpers/emails.js";
 
-const obtenerClientes = async (req, res) => {
-  const clientes = await Cliente.find();
+const obtenerClientesActivos = async (req, res) => {
+  try {
+    const clientes = await Cliente.find({ isActivo: true });
 
-  res.json(clientes);
+    res.json(clientes);
+  } catch (error) {
+    res.status(500).send("Error al obtener los clientes");
+  }
 };
 
 const obtenerUsuario = async (req, res) => {
@@ -48,11 +55,30 @@ const comprobarCliente = async (req, res) => {
 
 const nuevoCliente = async (req, res) => {
   const cliente = new Cliente(req.body);
+  const usuario = new Usuario();
+
+  usuario.nombre = cliente.nombre;
+  usuario.apellido = cliente.apellido;
+  usuario.dni = cliente.dni;
+  usuario.email = cliente.email;
+  usuario.celu = cliente.celular;
+  usuario.token = generarId();
+
+  const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para crear un usuario y gestionar tus reservas.`;
+
+  const infoMail = {
+    email: usuario.email,
+    nombre: usuario.nombre,
+    token: usuario.token,
+  };
 
   try {
     const clienteAlmacenado = await cliente.save();
-
     await clienteAlmacenado.save();
+    usuario.cliente = clienteAlmacenado._id;
+    await usuario.save();
+    await enviarMensaje(mensaje, usuario.celu);
+    await emailRegistro(infoMail);
     res.json(clienteAlmacenado);
   } catch (error) {
     console.log(error);
@@ -144,7 +170,7 @@ const editarCliente = async (req, res) => {
 };
 
 export {
-  obtenerClientes,
+  obtenerClientesActivos,
   nuevoCliente,
   obtenerCliente,
   editarCliente,

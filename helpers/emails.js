@@ -22,18 +22,18 @@ export const emailRegistro = async (datos) => {
   //informacion del email
 
   const info = await transport.sendMail({
-    from: '"People Coworking - Bienvenid@!" <info@peopleco.com.ar>',
+    from: '"Kinestretch - Bienvenid@!" <info@peopleco.com.ar>',
     to: email,
     subject: "Alta de cuenta",
-    text: "Verifica tu cuenta en People Coworking",
+    text: "Verifica tu cuenta en Kinestretch",
     html: `
-        <p>Hola ${nombre}, bienvenid@ a People Coworking</p>
-        <p>Hemos creado tu cuenta para que puedas gestionar tus reservas de sala de reunion, ver facturas, abonar y mucho mas. Solo debes configurar una contraseña y puedes hacerlo en el siguiente enlace: <a href='${process.env.FRONTEND_URL}/crear-password/${token}'>Configurar Pass</a></p>
+        <p>Hola ${nombre}, bienvenid@ a Kinestretch</p>
+        <p>Hemos creado tu cuenta para que puedas gestionar tus reservas, cancelaciones y mucho mas. Solo debes configurar una contraseña y puedes hacerlo en el siguiente enlace: <a href='${process.env.FRONTEND_URL}/crear-password/${token}'>Configurar Pass</a></p>
 
-        <p>Si no acabas de adquirir una membresia en People Coworking, puedes ignorar este mensaje.</p>
+        <p>Si no acabas de darte de alta en Kinestretch, puedes ignorar este mensaje.</p>
 
         <p>Que tengas un gran dia!</p>
-        <p>Equipo People Coworking</p>
+        <p>Kinestretch</p>
     `,
   });
 };
