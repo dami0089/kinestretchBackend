@@ -54,6 +54,12 @@ const usuarioSchema = mongoose.Schema(
         ref: "Cliente",
       },
     ],
+    profesor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Profesor",
+      },
+    ],
   },
   {
     timestams: true,

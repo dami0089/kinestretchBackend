@@ -30,7 +30,10 @@ const profesorSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
-
+    isActivo: {
+      type: Boolean,
+      default: true,
+    },
     observaciones: [
       {
         type: String,
@@ -49,6 +52,16 @@ const profesorSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Usuario",
     },
+    sede: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sedes",
+    },
+    clases: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Clases",
+      },
+    ],
   },
   {
     timestaps: true,

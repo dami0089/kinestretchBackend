@@ -10,14 +10,23 @@ const sedesSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
+    localidad: {
+      type: String,
+      trim: true,
+    },
+    provincia: {
+      type: String,
+      trim: true,
+    },
     fechaAlta: {
       type: Date,
       default: Date.now(),
     },
-    fechaVencimiento: {
-      type: Date,
-      default: Date.now(),
+    isActivo: {
+      type: Boolean,
+      default: true,
     },
+
     creador: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Usuario",

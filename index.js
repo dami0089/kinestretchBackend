@@ -4,6 +4,8 @@ import cors from "cors";
 import conectarDB from "./config/db.js";
 import router from "./routes/usuarioRoutes.js";
 import clientesRouter from "./routes/clientesRoutes.js";
+import profesoresRoutes from './routes/profesoresRoutes.js'
+import sedesRoutes from './routes/sedesRoutes.js'
 
 import { bot } from "./whatsappbot.js";
 
@@ -37,6 +39,10 @@ app.use((req, res, next) => {
 // Routing
 app.use("/api/usuarios", router);
 app.use("/api/clientes", clientesRouter);
+app.use("/api/profesores", profesoresRoutes);
+app.use("/api/sedes", sedesRoutes);
+
+
 
 const PORT = process.env.PORT || 4000;
 
