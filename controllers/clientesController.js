@@ -6,6 +6,7 @@ dotenv.config();
 import { enviarMensaje } from "../whatsappbot.js";
 import generarId from "../helpers/generarId.js";
 import { emailRegistro } from "../helpers/emails.js";
+import Clases from '../models/Clases.js';
 
 const obtenerClientesActivos = async (req, res) => {
   try {
@@ -95,15 +96,23 @@ const obtenerCliente = async (req, res) => {
     return res.status(404).json({ msg: error.message });
   }
 
-  // res.json({ cliente });
-
-  //obtener las facturas del cliente
-  // const facturas = await Factura.find().where("cliente").equals(cliente._id);
-
-  res.json({
-    cliente,
-  });
+  res.json(cliente);
 };
+
+const obtenerClase = async (req, res) => {
+  const { id } = req.params;
+
+  const clase = await Clases.findById(id);
+
+  if (!clase) {
+    const error = new Error("Cliente no encontrado");
+    return res.status(404).json({ msg: error.message });
+  }
+
+  res.json(clase);
+};
+
+
 
 const desactivarCliente = async (req, res) => {
   const { id } = req.params;
@@ -178,4 +187,5 @@ export {
   obtenerUsuario,
   desactivarCliente,
   obtenerUsuariosProfile,
+  obtenerClase
 };

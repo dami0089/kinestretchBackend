@@ -7,15 +7,27 @@ const clasesSchema = mongoose.Schema(
       ref: "Sedes",
     },
     horarioInicio: {
-      type: String,
-      trim: true,
+      type: Number,
     },
     horarioFin: {
-      type: String,
-      trim: true,
+      type: Number,
     },
-    fecha: {
-      type: Date,
+
+    diaDeLaSemana: {
+      type: String,
+      trim: true
+    },
+    nombreSede: {
+      type: String,
+      trim: true
+    },
+    nombreProfe: {
+      type: String,
+      trim: true
+    },
+    isFeriado:{
+      type: Boolean,
+      default: false,
     },
     creador: {
       type: mongoose.Schema.Types.ObjectId,
@@ -31,6 +43,7 @@ const clasesSchema = mongoose.Schema(
         ref: "Cliente",
       },
     ],
+
   },
   {
     timestaps: true,

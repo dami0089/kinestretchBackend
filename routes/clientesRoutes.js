@@ -23,6 +23,8 @@ router.route("/:id").put(checkAuth, editarCliente);
 
 router.get("/obtener/:id", checkAuth, obtenerCliente);
 router.get("/buscar/:id", checkAuth, obtenerUsuario);
+router.get("/clases-cliente/:id", checkAuth, obtenerUsuario);
+
 
 router.get("/buscar-prueba/:id", checkAuth, obtenerUsuariosProfile);
 

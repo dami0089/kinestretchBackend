@@ -19,6 +19,7 @@
     "fs": "^0.0.1-security",
     "imap-simple": "^5.1.0",
     "jsonwebtoken": "^9.0.0",
+    "luxon": "^3.4.3",
     "mongoose": "^6.9.0",
     "node-cron": "^3.0.2",
     "node-schedule": "^2.1.1",

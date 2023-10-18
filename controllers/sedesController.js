@@ -31,21 +31,16 @@ const nuevaSede = async (req, res) => {
 const obtenerSede = async (req, res) => {
   const { id } = req.params;
 
-  const cliente = await Cliente.findById(id);
+  console.log('Obtengo Sede');
 
-  if (!cliente) {
+  const sede = await Sedes.findById(id);
+
+  if (!sede) {
     const error = new Error("Cliente no encontrado");
     return res.status(404).json({ msg: error.message });
   }
 
-  // res.json({ cliente });
-
-  //obtener las facturas del cliente
-  // const facturas = await Factura.find().where("cliente").equals(cliente._id);
-
-  res.json({
-    cliente,
-  });
+  res.json(sede);
 };
 
 const desactivarSede= async (req, res) => {
