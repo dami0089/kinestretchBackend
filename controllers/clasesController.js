@@ -2,8 +2,8 @@ import Cliente from "../models/Cliente.js";
 import dotenv from "dotenv";
 import Usuario from "../models/Usuario.js";
 dotenv.config();
-import Sedes from '../models/Sedes.js';
-import Clases from '../models/Clases.js';
+import Sedes from "../models/Sedes.js";
+import Clases from "../models/Clases.js";
 import Profesor from "../models/Profesor.js";
 import { DateTime } from "luxon";
 
@@ -17,19 +17,17 @@ const obtenerSedesActivas = async (req, res) => {
   }
 };
 
-
-
 const nuevaClase = async (req, res) => {
   const clase = new Clases(req.body);
-  const {sede, profesor} = req.body
+  const { sede, profesor } = req.body;
   clase.horarioFin = parseInt(req.body.horarioInicio) + 1;
 
-  const lugar = await Sedes.findById(sede)
-  const profe = await Profesor.findById(profesor)
+  const lugar = await Sedes.findById(sede);
+  const profe = await Profesor.findById(profesor);
 
-  clase.nombreSede = lugar.nombre
-  clase.nombreProfe= profe.nombre + ' ' + profe.apellido
-  
+  clase.nombreSede = lugar.nombre;
+  clase.nombreProfe = profe.nombre + " " + profe.apellido;
+
   try {
     const claseAlmacenada = await clase.save();
 
@@ -39,16 +37,23 @@ const nuevaClase = async (req, res) => {
   }
 };
 
-
 const obtenerClasesSede = async (req, res) => {
   const { id } = req.params;
 
   console.log("ID Sede:", id);
-  
+
   const diaActual = DateTime.now().setZone("America/Argentina/Buenos_Aires");
   const horaActual = diaActual.hour;
 
-  const diasDeLaSemanaOrden = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
+  const diasDeLaSemanaOrden = [
+    "Lunes",
+    "Martes",
+    "Miercoles",
+    "Jueves",
+    "Viernes",
+    "Sabado",
+    "Domingo",
+  ];
   const diaSemanaActual = diasDeLaSemanaOrden[diaActual.weekday - 1];
 
   console.log("Día Actual:", diaSemanaActual);
@@ -58,7 +63,7 @@ const obtenerClasesSede = async (req, res) => {
     sede: id,
     isFeriado: false,
     diaDeLaSemana: diaSemanaActual,
-    horarioInicio: { $gte: horaActual }
+    horarioInicio: { $gte: horaActual },
   });
 
   console.log("Clases encontradas:", clases);
@@ -69,25 +74,33 @@ const obtenerClasesSede = async (req, res) => {
   res.json(clases);
 };
 
-
 const obtenerClasesSedeManana = async (req, res) => {
   const { id } = req.params;
 
   console.log("ID Sede:", id);
-  
+
   const diaActual = DateTime.now().setZone("America/Argentina/Buenos_Aires");
-  const diasDeLaSemanaOrden = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"];
+  const diasDeLaSemanaOrden = [
+    "Lunes",
+    "Martes",
+    "Miercoles",
+    "Jueves",
+    "Viernes",
+    "Sabado",
+    "Domingo",
+  ];
   const diaSiguienteIndex = (diaActual.weekday + 1) % 7;
-  const diaSiguiente = diasDeLaSemanaOrden[diaSiguienteIndex === 0 ? 6 : diaSiguienteIndex - 1];
+  const diaSiguiente =
+    diasDeLaSemanaOrden[diaSiguienteIndex === 0 ? 6 : diaSiguienteIndex - 1];
 
   console.log("Día Actual:", diasDeLaSemanaOrden[diaActual.weekday - 1]);
   console.log("Día Siguiente:", diaSiguiente);
 
   // Buscar clases para el día siguiente
   const clases = await Clases.find({
-      sede: id,
-      isFeriado: false,
-      diaDeLaSemana: diaSiguiente
+    sede: id,
+    isFeriado: false,
+    diaDeLaSemana: diaSiguiente,
   });
 
   console.log("Clases encontradas:", clases);
@@ -100,16 +113,15 @@ const obtenerClasesSedeManana = async (req, res) => {
 
 const obtenerClasesSedesPorDia = async (req, res) => {
   const { id } = req.params;
-  const {dia} = req.body
+  const { dia } = req.body;
 
   console.log(dia);
 
-
   // Buscar clases para el día siguiente
   const clases = await Clases.find({
-      sede: id,
-      isFeriado: false,
-      diaDeLaSemana: dia
+    sede: id,
+    isFeriado: false,
+    diaDeLaSemana: dia,
   });
 
   // Ordenar las clases por hora de inicio
@@ -118,11 +130,7 @@ const obtenerClasesSedesPorDia = async (req, res) => {
   res.json(clases);
 };
 
-
-
-
-
-const desactivarSede= async (req, res) => {
+const desactivarSede = async (req, res) => {
   const { id } = req.params;
   const { isActivo } = req.body;
 
@@ -187,43 +195,45 @@ const editarSede = async (req, res) => {
 };
 
 const asignarClienteaClase = async (req, res) => {
-  const { id } = req.params; 
+  const { id } = req.params;
   const { idClase } = req.body;
 
   try {
     const clase = await Clases.findById(idClase);
-    const cliente = await Cliente.findById(id)
+    const cliente = await Cliente.findById(id);
 
     // Comprobar si el cliente ya está asignado a esa clase
     if (clase.clientes.includes(id)) {
-      return res.status(400).json({ msg: "El cliente ya está asignado a esta clase." });
+      return res
+        .status(400)
+        .json({ msg: "El cliente ya está asignado a esta clase." });
     }
 
     // Agregar el cliente a la lista de clientes de la clase
     clase.clientes.push(id);
-    cliente.clases.push(idClase)
-
+    cliente.clases.push(idClase);
+    cliente.nombreSede = clase.nombreSede;
+    cliente.sede = idClase;
     // Guardar los cambios en la base de datos
     await clase.save();
     await cliente.save();
 
     res.json(clase);
-
   } catch (error) {
     console.error(error);
-    res.status(500).send("Hubo un error al intentar asignar el cliente a la clase.");
+    res
+      .status(500)
+      .send("Hubo un error al intentar asignar el cliente a la clase.");
   }
 };
 
-const obtenerClasesCliente = async (req,res) =>{
-  const {id} = req.params
+const obtenerClasesCliente = async (req, res) => {
+  const { id } = req.params;
 
-  const clases = await Clases.find({clientes: id})
+  const clases = await Clases.find({ clientes: id });
 
-
-
-  res.json(clases)
-}
+  res.json(clases);
+};
 
 const obtenerClasesOrdenadas = async (req, res) => {
   console.log(req.body);
@@ -234,12 +244,11 @@ const obtenerClasesOrdenadas = async (req, res) => {
     console.log(id);
     console.log(dia);
 
-    const clases = await Clases.find({ 
+    const clases = await Clases.find({
       sede: id,
       diaDeLaSemana: dia,
-      isFeriado: false  // Si tienes un campo isActivo en el modelo Clases, si no, omitir
-    })
-    .sort({ horarioInicio: 1 });
+      isFeriado: false, // Si tienes un campo isActivo en el modelo Clases, si no, omitir
+    }).sort({ horarioInicio: 1 });
 
     console.log(clases);
 
@@ -248,10 +257,6 @@ const obtenerClasesOrdenadas = async (req, res) => {
     res.status(500).send("Error al obtener las clases");
   }
 };
-
-
-
-
 
 export {
   obtenerSedesActivas,
@@ -263,5 +268,5 @@ export {
   obtenerClasesSedesPorDia,
   asignarClienteaClase,
   obtenerClasesCliente,
-  obtenerClasesOrdenadas
+  obtenerClasesOrdenadas,
 };

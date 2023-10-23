@@ -6,7 +6,7 @@ dotenv.config();
 import { enviarMensaje } from "../whatsappbot.js";
 import generarId from "../helpers/generarId.js";
 import { emailRegistro } from "../helpers/emails.js";
-import Clases from '../models/Clases.js';
+import Clases from "../models/Clases.js";
 
 const obtenerClientesActivos = async (req, res) => {
   try {
@@ -56,30 +56,34 @@ const comprobarCliente = async (req, res) => {
 
 const nuevoCliente = async (req, res) => {
   const cliente = new Cliente(req.body);
-  const usuario = new Usuario();
-
-  usuario.nombre = cliente.nombre;
-  usuario.apellido = cliente.apellido;
-  usuario.dni = cliente.dni;
-  usuario.email = cliente.email;
-  usuario.celu = cliente.celular;
-  usuario.token = generarId();
-
-  const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para crear un usuario y gestionar tus reservas.`;
-
-  const infoMail = {
-    email: usuario.email,
-    nombre: usuario.nombre,
-    token: usuario.token,
-  };
 
   try {
     const clienteAlmacenado = await cliente.save();
     await clienteAlmacenado.save();
-    usuario.cliente = clienteAlmacenado._id;
-    await usuario.save();
-    await enviarMensaje(mensaje, usuario.celu);
-    await emailRegistro(infoMail);
+    if (cliente.email !== "") {
+      const usuario = new Usuario();
+      console.log(cliente.email);
+      usuario.nombre = cliente.nombre;
+      usuario.apellido = cliente.apellido;
+      usuario.dni = cliente.dni;
+      usuario.celu = cliente.celular;
+      usuario.token = generarId();
+      usuario.email = cliente.email;
+      usuario.cliente = clienteAlmacenado._id;
+      const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para crear un usuario y gestionar tus reservas.`;
+      await usuario.save();
+      const infoMail = {
+        email: usuario.email,
+        nombre: usuario.nombre,
+        token: usuario.token,
+      };
+      await emailRegistro(infoMail);
+      await enviarMensaje(mensaje, usuario.celu);
+    } else {
+      const mensaje = `Hola ${cliente.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo donde podras gestionar tus reservas de manera mas agil y comoda. Para acceder a esta plataforma, precisamos que nos compartas tu email asi lo damos de alta. De lo contrario, tambien podras interactuar con nuestro bot cuando precises realizar una cancelacion. Que tengas un gran dia!`;
+      await enviarMensaje(mensaje, cliente.celular);
+    }
+
     res.json(clienteAlmacenado);
   } catch (error) {
     console.log(error);
@@ -111,8 +115,6 @@ const obtenerClase = async (req, res) => {
 
   res.json(clase);
 };
-
-
 
 const desactivarCliente = async (req, res) => {
   const { id } = req.params;
@@ -187,5 +189,5 @@ export {
   obtenerUsuario,
   desactivarCliente,
   obtenerUsuariosProfile,
-  obtenerClase
+  obtenerClase,
 };
