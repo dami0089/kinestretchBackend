@@ -69,6 +69,7 @@ const nuevoCliente = async (req, res) => {
       usuario.celu = cliente.celular;
       usuario.token = generarId();
       usuario.email = cliente.email;
+      usuario.rol = "cliente";
       usuario.cliente = clienteAlmacenado._id;
       const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para crear un usuario y gestionar tus reservas.`;
       await usuario.save();

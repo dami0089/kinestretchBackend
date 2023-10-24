@@ -18,8 +18,6 @@ const obtenerProfesoresActivos = async (req, res) => {
   }
 };
 
-
-
 const comprobarProfesor = async (req, res) => {
   const { dni } = req.body;
 
@@ -35,30 +33,36 @@ const comprobarProfesor = async (req, res) => {
 
 const nuevoProfesor = async (req, res) => {
   const profesor = new Profesor(req.body);
-  const usuario = new Usuario();
-
-  usuario.nombre = profesor.nombre;
-  usuario.apellido = profesor.apellido;
-  usuario.dni = profesor.dni;
-  usuario.email = profesor.email;
-  usuario.celu = profesor.celular;
-  usuario.token = generarId();
-
-  const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para crear un usuario y gestionar tus reservas.`;
-
-  const infoMail = {
-    email: usuario.email,
-    nombre: usuario.nombre,
-    token: usuario.token,
-  };
 
   try {
     const profesorAlmacenado = await profesor.save();
+    if (profesor.email !== "") {
+      const usuario = new Usuario();
 
-    usuario.profesor = profesorAlmacenado._id;
-    await usuario.save();
-    await enviarMensaje(mensaje, usuario.celu);
-    await emailRegistro(infoMail);
+      usuario.nombre = profesor.nombre;
+      usuario.apellido = profesor.apellido;
+      usuario.dni = profesor.dni;
+      usuario.email = profesor.email;
+      usuario.celu = profesor.celular;
+      usuario.token = generarId();
+      usuario.email = profesor.email;
+      usuario.rol = "profesor";
+
+      usuario.profesor = profesorAlmacenado._id;
+
+      const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para crear un usuario y gestionar tus clases.`;
+      await usuario.save();
+      const infoMail = {
+        email: usuario.email,
+        nombre: usuario.nombre,
+        token: usuario.token,
+      };
+      await emailRegistro(infoMail);
+      await enviarMensaje(mensaje, usuario.celu);
+    } else {
+      const mensaje = `Hola ${profesor.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo donde podras gestionar tus clases de manera mas agil y comoda. Para acceder a esta plataforma, precisamos que nos compartas tu email asi lo damos de alta. !`;
+      await enviarMensaje(mensaje, profesor.celular);
+    }
     res.json(profesorAlmacenado);
   } catch (error) {
     console.log(error);
@@ -151,12 +155,9 @@ const editarCliente = async (req, res) => {
 
 export {
   obtenerProfesoresActivos,
-
   obtenerCliente,
   editarCliente,
-
   comprobarProfesor,
   nuevoProfesor,
   desactivarCliente,
-
 };

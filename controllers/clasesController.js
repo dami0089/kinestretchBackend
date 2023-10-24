@@ -30,6 +30,8 @@ const nuevaClase = async (req, res) => {
 
   try {
     const claseAlmacenada = await clase.save();
+    profe.clases.push(claseAlmacenada._id);
+    await profe.save();
 
     res.json(claseAlmacenada);
   } catch (error) {
@@ -114,8 +116,6 @@ const obtenerClasesSedeManana = async (req, res) => {
 const obtenerClasesSedesPorDia = async (req, res) => {
   const { id } = req.params;
   const { dia } = req.body;
-
-  console.log(dia);
 
   // Buscar clases para el día siguiente
   const clases = await Clases.find({
@@ -213,7 +213,7 @@ const asignarClienteaClase = async (req, res) => {
     clase.clientes.push(id);
     cliente.clases.push(idClase);
     cliente.nombreSede = clase.nombreSede;
-    cliente.sede = idClase;
+    cliente.sede = clase.sede;
     // Guardar los cambios en la base de datos
     await clase.save();
     await cliente.save();
@@ -235,8 +235,30 @@ const obtenerClasesCliente = async (req, res) => {
   res.json(clases);
 };
 
+const obtenerClasesProfesores = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const profe = await Usuario.findById(id);
+    const { dia } = req.body;
+
+    console.log(profe);
+    console.log(dia);
+
+    const clases = await Clases.find({
+      profesor: profe.profesor,
+      diaDeLaSemana: dia,
+      isFeriado: false,
+    }).sort({ horarioInicio: 1 });
+
+    console.log(clases);
+
+    res.json(clases);
+  } catch (error) {
+    res.status(500).send("Error al obtener las clases");
+  }
+};
+
 const obtenerClasesOrdenadas = async (req, res) => {
-  console.log(req.body);
   try {
     const { id } = req.params; // ID de la sede
     const { dia } = req.body; // Día proporcionado en el cuerpo de la solicitud
@@ -258,6 +280,41 @@ const obtenerClasesOrdenadas = async (req, res) => {
   }
 };
 
+const obtenerClientesClase = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Obtener la clase por ID
+    const clase = await Clases.findById(id);
+
+    // Si no se encuentra la clase, devolver un error
+    if (!clase) {
+      return res.status(404).json({ message: "Clase no encontrada" });
+    }
+
+    // Obtener los clientes basándonos en los IDs de clase.clientes
+    const clientes = await Cliente.find({
+      _id: { $in: clase.clientes },
+    });
+
+    // Mapear la lista de clientes para devolver solo id, nombre y apellido
+    const listaClientes = clientes.map((cliente) => ({
+      id: cliente._id,
+      nombre: cliente.nombre,
+      apellido: cliente.apellido,
+    }));
+
+    console.log(listaClientes);
+
+    // Devolver la lista de clientes
+    res.json(listaClientes);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error al obtener la clase y sus clientes" });
+  }
+};
+
 export {
   obtenerSedesActivas,
   nuevaClase,
@@ -269,4 +326,6 @@ export {
   asignarClienteaClase,
   obtenerClasesCliente,
   obtenerClasesOrdenadas,
+  obtenerClasesProfesores,
+  obtenerClientesClase,
 };

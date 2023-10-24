@@ -12,7 +12,9 @@ import {
   obtenerClasesSedesPorDia,
   asignarClienteaClase,
   obtenerClasesCliente,
-  obtenerClasesOrdenadas
+  obtenerClasesOrdenadas,
+  obtenerClasesProfesores,
+  obtenerClientesClase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -33,14 +35,14 @@ router.get("/obtener-clases-cliente/:id", checkAuth, obtenerClasesCliente);
 
 router.post("/obtener-clases-ordenadas/:id", checkAuth, obtenerClasesOrdenadas);
 
+router.post(
+  "/obtener-clases-profesores/:id",
+  checkAuth,
+  obtenerClasesProfesores
+);
 
-
-
-
-
+router.post("/obtener-clientes-clases/:id", checkAuth, obtenerClientesClase);
 
 router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
-
-
 
 export default router;
