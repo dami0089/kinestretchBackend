@@ -15,6 +15,7 @@ import {
   obtenerClasesOrdenadas,
   obtenerClasesProfesores,
   obtenerClientesClase,
+  obtenerClase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -29,6 +30,8 @@ router.get("/obtener/:id", checkAuth, obtenerClasesSede);
 router.get("/obtener-manana/:id", checkAuth, obtenerClasesSedeManana);
 
 router.post("/obtener-dia/:id", checkAuth, obtenerClasesSedesPorDia);
+
+router.post("/obtener-clase/:id", checkAuth, obtenerClase);
 
 router.post("/asignar-cliente-a-clase/:id", checkAuth, asignarClienteaClase);
 router.get("/obtener-clases-cliente/:id", checkAuth, obtenerClasesCliente);

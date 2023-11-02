@@ -315,6 +315,14 @@ const obtenerClientesClase = async (req, res) => {
   }
 };
 
+const obtenerClase = async (req, res) => {
+  const { id } = req.params;
+
+  const clase = await Clases.findById(id);
+
+  res.json(clase);
+};
+
 export {
   obtenerSedesActivas,
   nuevaClase,
@@ -328,4 +336,5 @@ export {
   obtenerClasesOrdenadas,
   obtenerClasesProfesores,
   obtenerClientesClase,
+  obtenerClase,
 };
