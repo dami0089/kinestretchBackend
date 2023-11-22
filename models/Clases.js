@@ -15,17 +15,17 @@ const clasesSchema = mongoose.Schema(
 
     diaDeLaSemana: {
       type: String,
-      trim: true
+      trim: true,
     },
     nombreSede: {
       type: String,
-      trim: true
+      trim: true,
     },
     nombreProfe: {
       type: String,
-      trim: true
+      trim: true,
     },
-    isFeriado:{
+    isFeriado: {
       type: Boolean,
       default: false,
     },
@@ -43,7 +43,6 @@ const clasesSchema = mongoose.Schema(
         ref: "Cliente",
       },
     ],
-
   },
   {
     timestaps: true,

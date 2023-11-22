@@ -18,6 +18,18 @@ const contableSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Cliente",
     },
+    nombreCliente: {
+      type: String,
+      trim: true,
+    },
+    nombreProfe: {
+      type: String,
+      trim: true,
+    },
+    cerradoProfe: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestaps: true,

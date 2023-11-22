@@ -65,6 +65,17 @@ const clienteSchema = mongoose.Schema(
       type: Date,
       default: Date.now(),
     },
+    fechaUltimoPago: {
+      type: Date,
+    },
+    importeUltimoPago: {
+      type: String,
+      trim: true,
+    },
+    asistioHoy: {
+      type: String,
+      trim: true,
+    },
     creador: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Usuario",

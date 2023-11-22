@@ -7,6 +7,7 @@ import { enviarMensaje } from "../whatsappbot.js";
 import generarId from "../helpers/generarId.js";
 import { emailRegistro } from "../helpers/emails.js";
 import Profesor from "../models/Profesor.js";
+import Clases from "../models/Clases.js";
 
 const obtenerProfesoresActivos = async (req, res) => {
   try {
@@ -69,24 +70,17 @@ const nuevoProfesor = async (req, res) => {
   }
 };
 
-const obtenerCliente = async (req, res) => {
+const obtenerProfesor = async (req, res) => {
   const { id } = req.params;
 
-  const cliente = await Cliente.findById(id);
+  const profe = await Profesor.findById(id);
 
-  if (!cliente) {
-    const error = new Error("Cliente no encontrado");
+  if (!profe) {
+    const error = new Error("Profesor no encontrado");
     return res.status(404).json({ msg: error.message });
   }
 
-  // res.json({ cliente });
-
-  //obtener las facturas del cliente
-  // const facturas = await Factura.find().where("cliente").equals(cliente._id);
-
-  res.json({
-    cliente,
-  });
+  res.json(profe);
 };
 
 const desactivarCliente = async (req, res) => {
@@ -153,11 +147,61 @@ const editarCliente = async (req, res) => {
   }
 };
 
+const desactivarProfe = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const profe = await Profesor.findById(id);
+    if (!profe) {
+      const error = new Error("Profesor no encontrado");
+      return res.status(404).json({ msg: error.message });
+    }
+
+    // Alternar el estado de isActivo
+    profe.isActivo = !profe.isActivo;
+
+    // Guardar el cambio de estado del profesor
+    const profesorAlmacenado = await profe.save();
+
+    // Si el profesor se desactiva, eliminarlo de todas las clases asignadas
+    if (!profe.isActivo) {
+      await Clases.updateMany(
+        { profesor: id },
+        { $unset: { profesor: "", nombreProfe: "" } }
+      );
+    }
+
+    // Actualizar isActivo en cada objeto de usuario
+    const usuarios = await Usuario.find({ profesor: { $in: id } });
+    usuarios.forEach(async (usuario) => {
+      usuario.isActivo = profe.isActivo;
+      await usuario.save();
+    });
+
+    res.json(profesorAlmacenado);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+const obtenerProfesoresInactivos = async (req, res) => {
+  try {
+    const profes = await Profesor.find({ isActivo: false });
+
+    res.json(profes);
+  } catch (error) {
+    res.status(500).send("Error al obtener los clientes");
+  }
+};
+
 export {
   obtenerProfesoresActivos,
-  obtenerCliente,
+  obtenerProfesor,
   editarCliente,
   comprobarProfesor,
   nuevoProfesor,
   desactivarCliente,
+  desactivarProfe,
+  obtenerProfesoresInactivos,
 };

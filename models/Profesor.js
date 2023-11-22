@@ -62,6 +62,10 @@ const profesorSchema = mongoose.Schema(
         ref: "Clases",
       },
     ],
+    nombreSede: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestaps: true,
