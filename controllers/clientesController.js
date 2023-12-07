@@ -68,7 +68,7 @@ const comprobarCliente = async (req, res) => {
 
 const nuevoCliente = async (req, res) => {
   const cliente = new Cliente(req.body);
-  console.log("voy a mandar el mensajito famoso con los botones");
+
   try {
     const clienteAlmacenado = await cliente.save();
     await clienteAlmacenado.save();
@@ -191,6 +191,8 @@ const editarCliente = async (req, res) => {
   cliente.fechaNacimiento = req.body.fechaNacimiento || cliente.fechaNacimiento;
   cliente.diagnostico = req.body.diagnostico || cliente.diagnostico;
   cliente.aptoFisico = req.body.aptoFisico || cliente.aptoFisico;
+  cliente.fechaApto = req.body.fechaApto || cliente.fechaApto;
+  cliente.linkApto = req.body.linkApto || cliente.linkApto;
   cliente.nombreContactoEmergencia =
     req.body.nombreContactoEmergencia || cliente.nombreContactoEmergencia;
   cliente.celularContactoEmergencia =
@@ -442,7 +444,7 @@ const obtenerCobrosProfesor = async (req, res) => {
     const movimientos = await Contable.find({
       creador: id,
       cerradoProfe: false,
-    });
+    }).sort({ fecha: -1 });
     // Aquí puedes decidir cómo responder. Por ejemplo:
     res.json(movimientos);
   } catch (error) {
@@ -461,7 +463,7 @@ const obtenerCobrosProfesorAdmin = async (req, res) => {
     // Asegúrate de que el modelo Contable está correctamente importado
     const movimientos = await Contable.find({
       creador: usuario._id,
-    });
+    }).sort({ fecha: -1 });
 
     console.log(movimientos);
     // Aquí puedes decidir cómo responder. Por ejemplo:
@@ -502,6 +504,23 @@ const obtenerPagosCliente = async (req, res) => {
   res.json(pagos);
 };
 
+const otorgarCreditos = async (req, res) => {
+  const { id } = req.params;
+
+  const cliente = await Cliente.findById(id);
+
+  if (cliente.creditos) {
+    cliente.creditos = cliente.creditos + 1;
+    await cliente.save();
+  }
+
+  if (!cliente.creditos) {
+    cliente.creditos = 1;
+    await cliente.save();
+  }
+  res.json({ msg: "OK" });
+};
+
 export {
   obtenerClientesActivos,
   nuevoCliente,
@@ -526,4 +545,5 @@ export {
   obtenerMovimientosCliente,
   obtenerCobrosProfesorAdmin,
   registrarPagoPerfilAdmin,
+  otorgarCreditos,
 };

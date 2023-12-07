@@ -25,6 +25,7 @@ import {
   obtenerMovimientosCliente,
   obtenerCobrosProfesorAdmin,
   registrarPagoPerfilAdmin,
+  otorgarCreditos,
 } from "../controllers/clientesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -80,5 +81,7 @@ router.post(
   checkAuth,
   obtenerMovimientosCliente
 );
+
+router.post("/otorgar-creditos/:id", checkAuth, otorgarCreditos);
 
 export default router;

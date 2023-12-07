@@ -35,6 +35,10 @@ const clienteSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
+    creditos: {
+      type: Number,
+      default: 0,
+    },
     nombreContactoEmergencia: {
       type: String,
       trim: true,
@@ -73,6 +77,13 @@ const clienteSchema = mongoose.Schema(
       trim: true,
     },
     asistioHoy: {
+      type: String,
+      trim: true,
+    },
+    fechaApto: {
+      type: Date,
+    },
+    linkApto: {
       type: String,
       trim: true,
     },

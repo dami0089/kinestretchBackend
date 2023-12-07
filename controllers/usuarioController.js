@@ -5,6 +5,8 @@ import { emailRegistro, emailOlvidePassword } from "../helpers/emails.js";
 import Cliente from "../models/Cliente.js";
 import imaps from "imap-simple";
 import dotenv from "dotenv";
+import Clases from "../models/Clases.js";
+import Profesor from "../models/Profesor.js";
 dotenv.config();
 
 const config = {
@@ -139,7 +141,9 @@ const autenticar = async (req, res) => {
       nombre: usuario.nombre,
       email: usuario.email,
       rol: usuario.rol,
+      cliente: usuario.cliente,
       token: generarJWT(usuario._id),
+      profesor: usuario.profesor,
     });
   } else {
     const error = new Error("El password es incorrecto");
@@ -270,6 +274,23 @@ const perfil = async (req, res) => {
   res.json(usuario);
 };
 
+const datosDash = async (req, res) => {
+  const clientes = await Cliente.find({ isActivo: true });
+  const clases = await Clases.find();
+  const profesores = await Profesor.find();
+
+  try {
+    const info = {
+      clientes: clientes.length,
+      clases: clases.length,
+      profesores: profesores.length,
+    };
+    res.json(info);
+  } catch (error) {
+    res.status(500).send("Error al obtener data para dash.");
+  }
+};
+
 export {
   registrar,
   autenticar,
@@ -284,4 +305,5 @@ export {
   obtenerUsuario,
   editarUsuario,
   eliminarUsuario,
+  datosDash,
 };

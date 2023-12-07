@@ -43,6 +43,15 @@ const clasesSchema = mongoose.Schema(
         ref: "Cliente",
       },
     ],
+    recupero: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Cliente",
+      },
+    ],
+    cupo: {
+      type: Number,
+    },
   },
   {
     timestaps: true,

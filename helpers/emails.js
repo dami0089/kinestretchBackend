@@ -7,58 +7,59 @@ export const emailRegistro = async (datos) => {
 
   const hemail = process.env.EMAIL;
   const hpass = process.env.PASSWORD;
-  const host = process.env.HOST;
-  const port = process.env.EMAIL_PORT;
 
   const transport = nodemailer.createTransport({
-    host: host,
-    port: port,
+    service: "gmail",
     auth: {
-      user: hemail,
-      pass: hpass,
+      type: "OAuth2",
+      user: "posturalapp.arg@gmail.com",
+      clientId: process.env.clientId,
+      clientSecret: process.env.clientSecret,
+      refreshToken: process.env.refreshToken,
     },
   });
 
   //informacion del email
 
-  const info = await transport.sendMail({
-    from: '"Kinestretch - Bienvenid@!" <info@peopleco.com.ar>',
-    to: email,
-    subject: "Alta de cuenta",
-    text: "Verifica tu cuenta en Kinestretch",
-    html: `
-        <p>Hola ${nombre}, bienvenid@ a Kinestretch</p>
-        <p>Hemos creado tu cuenta para que puedas gestionar tus reservas, cancelaciones y mucho mas. Solo debes configurar una contraseña y puedes hacerlo en el siguiente enlace: <a href='${process.env.FRONTEND_URL}/crear-password/${token}'>Configurar Pass</a></p>
-
-        <p>Si no acabas de darte de alta en Kinestretch, puedes ignorar este mensaje.</p>
-
-        <p>Que tengas un gran dia!</p>
-        <p>Kinestretch</p>
-    `,
-  });
+  try {
+    const info = await transport.sendMail({
+      from: '"Kinestretch - Bienvenid@!" <posturalapp.arg@gmail.com>',
+      to: email,
+      subject: "Alta de cuenta",
+      text: "Verifica tu cuenta en Kinestretch",
+      html: `
+          <p>Hola ${nombre}, bienvenid@ a Kinestretch</p>
+          <p>Hemos creado tu cuenta para que puedas gestionar tus reservas, cancelaciones y mucho mas. Solo debes configurar una contraseña y puedes hacerlo en el siguiente enlace: <a href='${process.env.FRONTEND_URL}/crear-password/${token}'>Configurar Pass</a></p>
+  
+          <p>Si no acabas de darte de alta en Kinestretch, puedes ignorar este mensaje.</p>
+  
+          <p>Que tengas un gran dia!</p>
+          <p>Kinestretch</p>
+      `,
+    });
+  } catch (error) {
+    console.log(error);
+  }
 };
 
 export const emailOlvidePassword = async (datos) => {
   const { email, nombre, token } = datos;
 
-  const hemail = process.env.EMAIL;
-  const hpass = process.env.PASSWORD;
-  const host = process.env.HOST;
-  const port = process.env.EMAIL_PORT;
-
   const transport = nodemailer.createTransport({
-    host: host,
-    port: port,
+    service: "gmail",
     auth: {
-      user: hemail,
-      pass: hpass,
+      type: "OAuth2",
+      user: "posturalapp.arg@gmail.com",
+      clientId: process.env.clientId,
+      clientSecret: process.env.clientSecret,
+      refreshToken: process.env.refreshToken,
     },
   });
 
   //informacion del email
 
   const info = await transport.sendMail({
-    from: '"People Coworking" <info@peopleco.com.ar>',
+    from: '"Kinestretch - Bienvenid@!" <posturalapp.arg@gmail.com>',
     to: email,
     subject: "Reestablece tu Password",
     text: "Reestablece tu Password",
@@ -73,40 +74,79 @@ export const emailOlvidePassword = async (datos) => {
   });
 };
 
-export const emailReservaSala = async (datos) => {
-  const { email, nombre, sala, fecha, horaInicio, horaFin } = datos;
+export const emailClaseCancelada = async (datos) => {
+  const { email, nombre } = datos;
 
   const hemail = process.env.EMAIL;
   const hpass = process.env.PASSWORD;
-  const host = process.env.HOST;
-  const port = process.env.EMAIL_PORT;
 
   const transport = nodemailer.createTransport({
-    host: host,
-    port: port,
+    service: "gmail",
     auth: {
-      user: hemail,
-      pass: hpass,
+      type: "OAuth2",
+      user: "posturalapp.arg@gmail.com",
+      clientId: process.env.clientId,
+      clientSecret: process.env.clientSecret,
+      refreshToken: process.env.refreshToken,
+    },
+  });
+
+  //informacion del email
+  console.log("Envio email");
+  try {
+    const info = await transport.sendMail({
+      from: '"Kinestretch - Bienvenid@!" <posturalapp.arg@gmail.com>',
+      to: email,
+      subject: "Clase Cancelada",
+      text: "Clase Cancelada",
+      html: `
+          <p>Hola ${nombre}</p>
+          <p>Te confirmamos que tu clase ha sido cancelada con exito! </p>
+    
+          <p>Que tengas un gran dia!</p>
+          <p>Kinestretch</p>
+      `,
+    });
+    console.log(info);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export const emailProfesorClaseAsignada = async (datos) => {
+  const { email, nombre } = datos;
+
+  const hemail = process.env.EMAIL;
+  const hpass = process.env.PASSWORD;
+
+  const transport = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      type: "OAuth2",
+      user: "posturalapp.arg@gmail.com",
+      clientId: process.env.clientId,
+      clientSecret: process.env.clientSecret,
+      refreshToken: process.env.refreshToken,
     },
   });
 
   //informacion del email
 
-  const info = await transport.sendMail({
-    from: '"People Coworking" <info@peopleco.com.ar>',
-    to: email,
-    subject: `Reserva Creada en ${sala}`,
-    text: `Reserva Creada en ${sala}`,
-    html: `
-        <p>Hola ${nombre}</p>
-        <p>A continuacion te compartimos los detalles de tu reserva:</p>
-        <p>\nFecha: ${fecha}</p>
-        <p>\nHora Inicio: ${horaInicio}</p>
-        <p>\nHora Fin: ${horaFin}</p>
-
-        <p>Recorda que si necesitas cancelar la misma podras hacerlo desde nuestra web, o bien informando a nuestro personal.</p>
-
-       
-    `,
-  });
+  try {
+    const info = await transport.sendMail({
+      from: '"Kinestretch - Bienvenid@!" <posturalapp.arg@gmail.com>',
+      to: email,
+      subject: "Clase Asignada",
+      text: "Clase Asignada",
+      html: `
+          <p>Hola ${nombre}</p>
+          <p>Te informamos que te hemos asignado una nueva clase. Podes ver los datos desde nuestra web haciendo clic en el siguiente enlace --> <a href='https://postural.com.ar'>Ingresar a mi cuenta</a></p>
+    
+          <p>Que tengas un gran dia!</p>
+          <p>Kinestretch</p>
+      `,
+    });
+  } catch (error) {
+    console.log(error);
+  }
 };

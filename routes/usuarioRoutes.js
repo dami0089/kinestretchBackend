@@ -15,6 +15,7 @@ import {
   obtenerUsuarios,
   editarUsuario,
   eliminarUsuario,
+  datosDash,
 } from "../controllers/usuarioController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -34,5 +35,7 @@ router.get("/listado", checkAuth, obtenerUsuarios);
 router.get("/perfil", checkAuth, perfil);
 router.delete("/eliminar-usuario/:id", checkAuth, eliminarUsuario);
 router.get("/consultar-autenticacion", checkAuth, consultarAutenticacion);
+
+router.get("/obtener-dash/", checkAuth, datosDash);
 
 export default router;
