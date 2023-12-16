@@ -8,7 +8,7 @@ import generarId from "../helpers/generarId.js";
 import { emailRegistro } from "../helpers/emails.js";
 import Clases from "../models/Clases.js";
 import Contable from "../models/Contable.js";
-import Profesor from "../models/Profesor.js";
+import cron from "node-cron";
 
 const obtenerClientesActivos = async (req, res) => {
   try {
@@ -32,10 +32,8 @@ const obtenerClientesInactivos = async (req, res) => {
 
 const obtenerUsuario = async (req, res) => {
   const { id } = req.params;
-  console.log("entro a obtener usuario" + id);
 
   const usuario = await Usuario.findById(id);
-  console.log("Consulte el usuario, es este: " + usuario);
 
   if (!usuario) {
     const error = new Error("No existe el usuario");
@@ -74,7 +72,7 @@ const nuevoCliente = async (req, res) => {
     await clienteAlmacenado.save();
     if (cliente.email !== "") {
       const usuario = new Usuario();
-      console.log(cliente.email);
+
       usuario.nombre = cliente.nombre;
       usuario.apellido = cliente.apellido;
       usuario.dni = cliente.dni;
@@ -246,7 +244,6 @@ const editarClientePerfilCliente = async (req, res) => {
 
 const obtenerMovimientosCliente = async (req, res) => {
   const { id } = req.params;
-  console.log(id);
 
   try {
     const movimientos = await Contable.find({ cliente: id });
@@ -319,7 +316,6 @@ const enviarMensajeAlCliente = async (req, res) => {
 const registrarPago = async (req, res) => {
   const { id } = req.params;
   const { importe, usuario } = req.body;
-  console.log(usuario);
   const cliente = await Cliente.findById(id);
 
   try {
@@ -331,8 +327,7 @@ const registrarPago = async (req, res) => {
     (pago.nombreCliente = cliente.nombre + " " + cliente.apellido),
       (cliente.importeUltimoPago = importe);
     cliente.fechaUltimoPago = Date.now();
-    console.log("Cliente: " + cliente);
-    console.log("Pago: " + pago);
+
     await cliente.save();
     await pago.save();
     res.json({ msg: "OK" });
@@ -349,17 +344,12 @@ const registrarPagoPerfilAdmin = async (req, res) => {
   const usuario = await Usuario.findOne({ profesor: profesor });
   const pago = new Contable();
 
-  console.log("Profesor id: " + profesor);
-  console.log("usuario: " + usuario);
-
   pago.cliente = id;
   pago.creador = usuario._id;
   pago.importe = importe;
   pago.nombreCliente = cliente.nombre + " " + cliente.apellido;
   cliente.importeUltimoPago = importe;
   cliente.fechaUltimoPago = Date.now();
-  console.log("Cliente: " + cliente);
-  console.log("Pago antes de guardar: " + pago);
 
   try {
     await cliente.save();
@@ -372,16 +362,15 @@ const registrarPagoPerfilAdmin = async (req, res) => {
 
 const registrarRetiro = async (req, res) => {
   const { importe, usuario } = req.body;
-  console.log(usuario);
 
   const profe = await Usuario.findById(usuario);
-  console.log(profe);
+
   try {
     const pago = new Contable();
     pago.creador = usuario;
     pago.importe = importe;
     pago.nombreProfe = profe.nombre + " " + profe.apellido;
-    console.log(pago);
+
     await pago.save();
     res.json({ msg: "OK" });
   } catch (error) {
@@ -392,8 +381,7 @@ const registrarRetiro = async (req, res) => {
 const hacerCierre = async (req, res) => {
   const { id } = req.params;
   const { importe } = req.body;
-  console.log(id);
-  console.log(importe);
+
   try {
     const profesor = await Usuario.findById(id);
 
@@ -458,14 +446,12 @@ const obtenerCobrosProfesorAdmin = async (req, res) => {
     const { id } = req.params;
 
     const usuario = await Usuario.findOne({ profesor: id });
-    console.log(usuario);
 
     // Asegúrate de que el modelo Contable está correctamente importado
     const movimientos = await Contable.find({
       creador: usuario._id,
     }).sort({ fecha: -1 });
 
-    console.log(movimientos);
     // Aquí puedes decidir cómo responder. Por ejemplo:
     res.json(movimientos);
   } catch (error) {
@@ -475,7 +461,6 @@ const obtenerCobrosProfesorAdmin = async (req, res) => {
 };
 
 const editarPago = async (req, res) => {
-  console.log("edito el pago");
   const { id } = req.params;
   const pago = await Contable.findById(id);
 
@@ -499,7 +484,6 @@ const obtenerPagosCliente = async (req, res) => {
   const { id } = req.params;
 
   const pagos = await Contable.find({ cliente: id }).sort({ fecha: -1 });
-  console.log(pagos);
 
   res.json(pagos);
 };
@@ -520,6 +504,50 @@ const otorgarCreditos = async (req, res) => {
   }
   res.json({ msg: "OK" });
 };
+
+const eliminarRecuperosDiaAnterior = async () => {
+  try {
+    // Obtén el día de la semana correspondiente al día anterior en horario de Argentina
+    const diaAnterior = moment()
+      .tz("America/Argentina/Buenos_Aires")
+      .subtract(1, "days")
+      .format("dddd")
+      .toLowerCase();
+
+    // Mapeo de días en español sin acentos
+    const dias = {
+      monday: "lunes",
+      tuesday: "martes",
+      wednesday: "miercoles",
+      thursday: "jueves",
+      friday: "viernes",
+      saturday: "sabado",
+    };
+
+    // Encuentra las clases del día anterior
+    const clasesDelDiaAnterior = await Clases.find({
+      diaDeLaSemana: dias[diaAnterior],
+    });
+
+    // Actualiza cada clase eliminando los clientes de 'recupero'
+    for (const clase of clasesDelDiaAnterior) {
+      await Clases.updateOne({ _id: clase._id }, { $set: { recupero: [] } });
+    }
+
+    console.log(
+      "Recuperos eliminados correctamente para el día:",
+      dias[diaAnterior]
+    );
+  } catch (error) {
+    console.error("Error al eliminar recuperos: ", error);
+  }
+};
+
+// Programa la tarea para ejecutarse todos los días a las 00:30 hs
+cron.schedule("30 0 * * *", () => {
+  console.log("Ejecutando la tarea de eliminar recuperos del día anterior");
+  eliminarRecuperosDiaAnterior();
+});
 
 export {
   obtenerClientesActivos,

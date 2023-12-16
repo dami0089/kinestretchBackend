@@ -29,6 +29,8 @@ import {
   recuperoClase,
   verificarInasistenciasFuturas,
   esPrimeraClase,
+  registrarInasistenciaPaginaProfesor,
+  consultarPrimerclase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -60,6 +62,8 @@ router.post("/asignar-cliente-a-clase/:id", checkAuth, asignarClienteaClase);
 router.post("/asignar-recupero/:id", checkAuth, recuperoClase);
 
 router.get("/obtener-clases-cliente/:id", checkAuth, obtenerClasesCliente);
+
+router.get("/consultar-primer-clase/:id", checkAuth, consultarPrimerclase);
 
 router.get(
   "/obtener-clases-cliente2/:id",
@@ -96,10 +100,18 @@ router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
 
 router.post("/cancelar-clase-cliente/:id", checkAuth, cancelarClaseCliente);
 
+router.post("/cancelar-clase-cliente/:id", checkAuth, cancelarClaseCliente);
+
 router.post(
   "/obtener-clases-ordenadas-inicio/",
   checkAuth,
   obtenerClasesOrdenadasParaProximasClasesPaginaInicio
+);
+
+router.post(
+  "/registrar-inasistencia/:id",
+  checkAuth,
+  registrarInasistenciaPaginaProfesor
 );
 
 export default router;
