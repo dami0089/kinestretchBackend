@@ -50,7 +50,7 @@ router.get("/buscar-prueba/:id", checkAuth, obtenerUsuariosProfile);
 router.put("/desactivar-activar/:id", checkAuth, desactivarCliente);
 
 router.post("/comprobar", checkAuth, comprobarCliente);
-router.post("/desactivar/:id", checkAuth, desactivarcliente);
+router.post("/desactivar/:id", checkAuth, desactivarCliente);
 router.post("/activar/:id", checkAuth, activarCliente);
 
 router.get(

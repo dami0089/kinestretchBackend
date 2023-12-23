@@ -4,7 +4,7 @@ const router = express.Router();
 
 import {
   obtenerProfesoresActivos,
-  editarCliente,
+  editarProfe,
   desactivarCliente,
   comprobarProfesor,
   nuevoProfesor,
@@ -19,7 +19,7 @@ router
   .route("/")
   .get(checkAuth, obtenerProfesoresActivos)
   .post(checkAuth, nuevoProfesor);
-router.route("/:id").put(checkAuth, editarCliente);
+router.route("/:id").put(checkAuth, editarProfe);
 
 router.get("/obtener/:id", checkAuth, obtenerProfesor);
 

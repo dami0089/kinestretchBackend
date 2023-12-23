@@ -336,22 +336,43 @@ const obtenerClasesCliente = async (req, res) => {
       return res.status(404).json({ msg: "Usuario o cliente no encontrado." });
     }
 
-    const clases = await Clases.find({
-      $or: [
-        { clientes: { $in: [usuario.cliente] } },
-        { recupero: { $in: [usuario.cliente] } },
-      ],
-    });
+    const clienteId = usuario.cliente;
 
-    // Agregar información sobre si la clase es de recupero para el cliente
-    const clasesModificadas = clases.map((clase) => {
-      return {
-        ...clase.toObject(), // Convertir el documento Mongoose a un objeto JavaScript
-        esRecupero: clase.recupero.includes(usuario.cliente),
-      };
-    });
+    const clases = await Clases.aggregate([
+      {
+        $match: {
+          $or: [{ clientes: clienteId }, { recupero: clienteId }],
+        },
+      },
+      {
+        $project: {
+          sede: 1,
+          horarioInicio: 1,
+          diaDeLaSemana: 1,
+          isFeriado: 1,
+          creador: 1,
+          profesor: 1,
+          clientes: 1,
+          recupero: 1,
+          cupo: 1,
+          horarioFin: 1,
+          nombreSede: 1,
+          nombreProfe: 1,
+          __v: 1,
+          // Convertir tanto clienteId como elementos de recupero a cadenas de texto
+          esRecupero: {
+            $in: [
+              { $toString: clienteId },
+              {
+                $map: { input: "$recupero", as: "r", in: { $toString: "$$r" } },
+              },
+            ],
+          },
+        },
+      },
+    ]);
 
-    res.json(clasesModificadas);
+    res.json(clases);
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ msg: error.message });
@@ -617,12 +638,12 @@ const verificarInasistencia = async (req, res) => {
 
 const asistencia = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // ID de la clase
     const { idCliente } = req.body;
 
     const cliente = await Cliente.findById(idCliente);
 
-    // Crear la fecha de hoy al inicio y al final del día en la zona horaria de Argentina.
+    // Crear las fechas de inicio y fin del día
     const hoyInicio = moment
       .tz("America/Argentina/Buenos_Aires")
       .startOf("day")
@@ -632,17 +653,16 @@ const asistencia = async (req, res) => {
       .endOf("day")
       .toDate();
 
-    // Buscar asistencias que tengan una fecha dentro del rango del día actual.
+    // Buscar asistencias existentes
     let asistenciaExistente = await Asistencias.findOne({
-      fechaClase: {
-        $gte: hoyInicio,
-        $lte: hoyFin,
-      },
+      fechaClase: { $gte: hoyInicio, $lte: hoyFin },
       clase: id,
     });
 
+    // Buscar la clase por ID
+    const clase = await Clases.findById(id);
+
     if (asistenciaExistente) {
-      // Si el cliente ya está en la lista, no se agrega.
       if (!asistenciaExistente.clientes.includes(idCliente)) {
         asistenciaExistente.clientes.push(idCliente);
         await asistenciaExistente.save();
@@ -653,7 +673,6 @@ const asistencia = async (req, res) => {
         });
       }
     } else {
-      // Si no hay registro de asistencia para hoy, se crea uno nuevo.
       const nuevaAsistencia = new Asistencias({
         clientes: [idCliente],
         clase: id,
@@ -662,6 +681,15 @@ const asistencia = async (req, res) => {
       await nuevaAsistencia.save();
       res.json({ msg: "Nueva asistencia creada correctamente." });
     }
+
+    // Verificar si el cliente está en la lista de recuperos de la clase y eliminarlo si es necesario
+    if (clase.recupero && clase.recupero.includes(idCliente)) {
+      clase.recupero = clase.recupero.filter(
+        (clienteId) => clienteId.toString() !== idCliente.toString()
+      );
+      await clase.save();
+    }
+
     cliente.asistioHoy = "Si";
     await cliente.save();
   } catch (error) {

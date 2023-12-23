@@ -134,40 +134,33 @@ const obtenerClase = async (req, res) => {
 
 const desactivarCliente = async (req, res) => {
   const { id } = req.params;
-  const { isActivo } = req.body;
 
-  const cliente = await Cliente.findById(id);
-  const usuarios = await Usuario.find({
-    $or: [{ cliente: { $in: id } }],
-  });
-
-  if (!cliente) {
-    const error = new Error("Cliente No encontrado");
-    return res.status(404).json({ msg: error.message });
-  }
-
-  if (isActivo === true) {
-    cliente.isActivo = false;
-  } else {
-    cliente.isActivo = true;
-  }
+  console.log(id);
 
   try {
-    const clienteAlmacenado = await cliente.save();
+    // Convertir el id a ObjectId
 
-    // Actualizar isActivo en cada objeto de usuario
-    usuarios.forEach(async (usuario) => {
-      if (isActivo === true) {
-        usuario.isActivo = false;
-      } else {
-        usuario.isActivo = true;
-      }
-      await usuario.save();
-    });
+    const cliente = await Cliente.findById(id);
+    if (!cliente) {
+      throw new Error("Cliente no encontrado");
+    }
 
-    res.json(clienteAlmacenado);
+    cliente.isActivo = false;
+    await cliente.save();
+
+    // Actualizar isActivo en los usuarios vinculados al cliente
+    await Usuario.updateMany(
+      { cliente: id },
+      { $set: { isActivo: cliente.isActivo } }
+    );
+
+    // Eliminar el id del cliente de los campos clientes y recupero en todas las clases
+    await Clases.updateMany({}, { $pull: { clientes: id, recupero: id } });
+
+    res.json(cliente);
   } catch (error) {
     console.log(error);
+    res.status(500).json({ msg: error.message });
   }
 };
 
@@ -255,34 +248,28 @@ const obtenerMovimientosCliente = async (req, res) => {
 };
 
 const desactivarcliente = async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const cliente = await Cliente.findById(id);
-
-    // 1. Buscar todas las clases en las que el cliente está inscrito
-    const clasesConCliente = await Clases.find({ clientes: id });
-
-    // 2. & 3. Para cada clase encontrada, eliminar el cliente y guardar la clase
-    for (let clase of clasesConCliente) {
-      const index = clase.clientes.indexOf(id);
-      if (index > -1) {
-        clase.clientes.splice(index, 1);
-        await clase.save();
-      }
-    }
-
-    // Limpiar el arreglo de clases del cliente
-    cliente.clases = [];
-
-    // 4. Cambiar cliente.isActivo a false y guardar el cliente
-    cliente.isActivo = false;
-    await cliente.save();
-
-    res.json({ msg: "Ok" });
-  } catch (error) {
-    res.status(404).json({ msg: error.message });
-  }
+  // const { id } = req.params;
+  // try {
+  //   const cliente = await Cliente.findById(id);
+  //   // 1. Buscar todas las clases en las que el cliente está inscrito
+  //   const clasesConCliente = await Clases.find({ clientes: id });
+  //   // 2. & 3. Para cada clase encontrada, eliminar el cliente y guardar la clase
+  //   for (let clase of clasesConCliente) {
+  //     const index = clase.clientes.indexOf(id);
+  //     if (index > -1) {
+  //       clase.clientes.splice(index, 1);
+  //       await clase.save();
+  //     }
+  //   }
+  //   // Limpiar el arreglo de clases del cliente
+  //   cliente.clases = [];
+  //   // 4. Cambiar cliente.isActivo a false y guardar el cliente
+  //   cliente.isActivo = false;
+  //   await cliente.save();
+  //   res.json({ msg: "Ok" });
+  // } catch (error) {
+  //   res.status(404).json({ msg: error.message });
+  // }
 };
 
 const activarCliente = async (req, res) => {

@@ -122,25 +122,26 @@ const desactivarCliente = async (req, res) => {
   }
 };
 
-const editarCliente = async (req, res) => {
+const editarProfe = async (req, res) => {
   const { id } = req.params;
 
-  const cliente = await Cliente.findById(id);
+  const profe = await Profesor.findById(id);
 
-  if (!cliente) {
+  if (!profe) {
     const error = new Error("No encontrado");
     return res.status(404).json({ msg: error.message });
   }
 
-  cliente.tipo = req.body.tipo || cliente.tipo;
-  cliente.nombre = req.body.nombre || cliente.nombre;
-  cliente.mailFactura = req.body.mailFactura || cliente.mailFactura;
-  cliente.domicilio = req.body.domicilio || cliente.domicilio;
-  cliente.fechaVencimiento =
-    req.body.fechaVencimiento || cliente.fechaVencimiento;
+  profe.nombre = req.body.nombre || profe.nombre;
+  profe.apellido = req.body.apellido || profe.apellido;
+  profe.email = req.body.email || profe.email;
+  profe.dni = req.body.dni || profe.dni;
+  profe.celular = req.body.celular || profe.celular;
+  profe.domicilio = req.body.domicilio || profe.domicilio;
+  profe.fechaNacimiento = req.body.fechaNacimiento || profe.fechaNacimiento;
 
   try {
-    const usuarioAlmacenado = await cliente.save();
+    const usuarioAlmacenado = await profe.save();
     res.json(usuarioAlmacenado);
   } catch (error) {
     console.log(error);
@@ -195,7 +196,7 @@ const obtenerProfesoresInactivos = async (req, res) => {
 export {
   obtenerProfesoresActivos,
   obtenerProfesor,
-  editarCliente,
+  editarProfe,
   comprobarProfesor,
   nuevoProfesor,
   desactivarCliente,
