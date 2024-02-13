@@ -2,7 +2,10 @@ import Cliente from "../models/Cliente.js";
 import dotenv from "dotenv";
 import Usuario from "../models/Usuario.js";
 dotenv.config();
-import Sedes from '../models/Sedes.js';
+import Sedes from "../models/Sedes.js";
+import Secretaria from "../models/Secretaria.js";
+import generarId from "../helpers/generarId.js";
+import { emailRegistro } from "../helpers/emails.js";
 
 const obtenerSedesActivas = async (req, res) => {
   try {
@@ -13,8 +16,6 @@ const obtenerSedesActivas = async (req, res) => {
     res.status(500).send("Error al obtener los clientes");
   }
 };
-
-
 
 const nuevaSede = async (req, res) => {
   const sede = new Sedes(req.body);
@@ -31,7 +32,7 @@ const nuevaSede = async (req, res) => {
 const obtenerSede = async (req, res) => {
   const { id } = req.params;
 
-  console.log('Obtengo Sede');
+  console.log("Obtengo Sede");
 
   const sede = await Sedes.findById(id);
 
@@ -43,7 +44,7 @@ const obtenerSede = async (req, res) => {
   res.json(sede);
 };
 
-const desactivarSede= async (req, res) => {
+const desactivarSede = async (req, res) => {
   const { id } = req.params;
   const { isActivo } = req.body;
 
@@ -107,11 +108,52 @@ const editarSede = async (req, res) => {
   }
 };
 
+const nuevaSecretaria = async (req, res) => {
+  const secretaria = new Secretaria(req.body);
+  const sede = await Sedes.findById(secretaria.sede);
+
+  secretaria.nombreSede = sede.nombre;
+
+  try {
+    const secretariaAlmacenada = await secretaria.save();
+
+    const usuario = new Usuario();
+
+    usuario.nombre = secretariaAlmacenada.nombre;
+    usuario.apellido = secretariaAlmacenada.apellido;
+    usuario.dni = secretariaAlmacenada.dni;
+    usuario.token = generarId();
+    usuario.email = secretariaAlmacenada.email.toLowerCase();
+    usuario.rol = "secretaria";
+    usuario.secretaria = secretariaAlmacenada._id;
+    const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para gestionar los clientes y las reservas`;
+    await usuario.save();
+    const infoMail = {
+      email: usuario.email,
+      nombre: usuario.nombre,
+      token: usuario.token,
+    };
+
+    await emailRegistro(infoMail);
+
+    res.json(secretariaAlmacenada);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const obtenerSecretarias = async (req, res) => {
+  const secretarias = await Secretaria.find();
+
+  res.json(secretarias);
+};
+
 export {
   obtenerSedesActivas,
   nuevaSede,
   obtenerSede,
   desactivarSede,
-  editarSede
-
+  editarSede,
+  nuevaSecretaria,
+  obtenerSecretarias,
 };

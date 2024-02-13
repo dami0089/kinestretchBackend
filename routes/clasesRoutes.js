@@ -31,6 +31,7 @@ import {
   esPrimeraClase,
   registrarInasistenciaPaginaProfesor,
   consultarPrimerclase,
+  eliminarClase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -46,7 +47,7 @@ router.get("/obtener-manana/:id", checkAuth, obtenerClasesSedeManana);
 
 router.post("/limpiar-asistencias", checkAuth, limpiarAsistencias);
 
-router.post("/obtener-dia/:id", checkAuth, obtenerClasesSedesPorDia);
+router.post("/obtener-dia/:id", obtenerClasesSedesPorDia);
 
 router.post(
   "/obtener-inasistencias/:id",
@@ -113,5 +114,7 @@ router.post(
   checkAuth,
   registrarInasistenciaPaginaProfesor
 );
+
+router.delete("/eliminar-clase/:id", checkAuth, eliminarClase);
 
 export default router;

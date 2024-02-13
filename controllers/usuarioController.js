@@ -77,6 +77,7 @@ const editarUsuario = async (req, res) => {
 };
 
 const registrar = async (req, res) => {
+  req.body.email = req.body.email.toLowerCase();
   //Evita registros duplicados
   const { email } = req.body;
   const { cuit } = req.body;
@@ -121,10 +122,13 @@ const guardarUsuarioenCliente = async (cuit, id) => {
 };
 
 const autenticar = async (req, res) => {
-  const { email, password } = req.body;
+  // Transformamos el email a minúsculas antes de cualquier operación
+  const email = req.body.email.toLowerCase();
+  const { password } = req.body;
 
   // Comprobar si el usuario existe
   const usuario = await Usuario.findOne({ email });
+
   if (!usuario) {
     const error = new Error("El usuario no existe");
     return res.status(404).json({ msg: error.message });
@@ -139,7 +143,7 @@ const autenticar = async (req, res) => {
     res.json({
       _id: usuario._id,
       nombre: usuario.nombre,
-      email: usuario.email,
+      email: usuario.email, // Este email ya es el almacenado en la base de datos, no necesita transformación
       rol: usuario.rol,
       cliente: usuario.cliente,
       token: generarJWT(usuario._id),

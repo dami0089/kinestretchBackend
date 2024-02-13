@@ -19,35 +19,24 @@ const secretariaSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
-    celular: {
-      type: String,
-      trim: true,
-    },
-    fechaNacimiento: {
-      type: Date,
-    },
-    domicilio: {
+
+    nombreSede: {
       type: String,
       trim: true,
     },
 
-    observaciones: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
     fechaAlta: {
       type: Date,
       default: Date.now(),
     },
-    creador: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Usuario",
-    },
+
     usuario: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Usuario",
+    },
+    sede: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sedes",
     },
   },
   {

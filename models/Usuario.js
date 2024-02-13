@@ -60,6 +60,12 @@ const usuarioSchema = mongoose.Schema(
         ref: "Profesor",
       },
     ],
+    secretaria: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Secretaria",
+      },
+    ],
   },
   {
     timestams: true,

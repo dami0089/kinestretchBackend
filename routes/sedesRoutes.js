@@ -7,7 +7,9 @@ import {
   nuevaSede,
   obtenerSede,
   desactivarSede,
-  editarSede
+  editarSede,
+  nuevaSecretaria,
+  obtenerSecretarias,
 } from "../controllers/sedesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -18,11 +20,11 @@ router
   .post(checkAuth, nuevaSede);
 router.route("/:id").put(checkAuth, editarSede);
 
-router.get("/obtener/:id", checkAuth, obtenerSede);
+router.post("/nueva-secretaria", checkAuth, nuevaSecretaria);
 
+router.get("/obtener/:id", checkAuth, obtenerSede);
+router.get("/obtener-secretarias", checkAuth, obtenerSecretarias);
 
 router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
-
-
 
 export default router;

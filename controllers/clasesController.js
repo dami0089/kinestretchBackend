@@ -122,7 +122,8 @@ const obtenerClasesSedeManana = async (req, res) => {
 const obtenerClasesSedesPorDia = async (req, res) => {
   const { id } = req.params;
   const { dia } = req.body;
-
+  console.log(id);
+  console.log(dia);
   // Buscar clases para el día siguiente
   const clases = await Clases.find({
     sede: id,
@@ -132,7 +133,7 @@ const obtenerClasesSedesPorDia = async (req, res) => {
 
   // Ordenar las clases por hora de inicio
   clases.sort((a, b) => a.horarioInicio - b.horarioInicio);
-
+  console.log(clases);
   res.json(clases);
 };
 
@@ -706,12 +707,21 @@ const inasistenciaListaProfe = async (req, res) => {
 
     const cliente = await Cliente.findById(idCliente);
 
+    const clase = await Clases.findById(id);
+
     // Si no hay registro de asistencia para hoy, se crea uno nuevo.
     const nuevaInasistencia = new Inasistencias({
       cliente: [idCliente],
       clase: id,
       fechaInasistencia: Date.now(),
     });
+
+    if (clase.recupero && clase.recupero.includes(idCliente)) {
+      clase.recupero = clase.recupero.filter(
+        (clienteId) => clienteId.toString() !== idCliente.toString()
+      );
+      await clase.save();
+    }
 
     await nuevaInasistencia.save();
     cliente.asistioHoy = "No";
@@ -917,6 +927,31 @@ const consultarPrimerclase = async (req, res) => {
   }
 };
 
+const eliminarClase = async (req, res) => {
+  const { id } = req.params; // ID de la clase a eliminar
+
+  try {
+    // Paso 1: Eliminar la clase de todos los clientes que la tienen
+    const resultado = await Cliente.updateMany(
+      { clases: id }, // Filtro para encontrar clientes con la clase
+      { $pull: { clases: id } } // Operación para eliminar la clase de la lista
+    );
+
+    // Paso 2: Opcionalmente, eliminar la clase de la colección de clases
+    // Deberías tener una referencia a tu modelo de Clases aquí para eliminarlo
+    const claseEliminada = await Clases.findByIdAndRemove(id);
+
+    console.log(claseEliminada);
+    // Responder con un mensaje de éxito
+    res.json({ message: "Clase eliminada " });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Hubo un error al intentar eliminar la clase",
+    });
+  }
+};
+
 export {
   obtenerSedesActivas,
   nuevaClase,
@@ -947,4 +982,5 @@ export {
   esPrimeraClase,
   registrarInasistenciaPaginaProfesor,
   consultarPrimerclase,
+  eliminarClase,
 };
