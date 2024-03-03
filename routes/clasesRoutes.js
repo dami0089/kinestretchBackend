@@ -32,6 +32,11 @@ import {
   registrarInasistenciaPaginaProfesor,
   consultarPrimerclase,
   eliminarClase,
+  obtenerClases,
+  obtenerAlumnosDeClase,
+  eliminarClienteDeClaseListado,
+  comprobarAsistenciaClienteClase,
+  comprobarInasistenciaClienteClase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -45,9 +50,19 @@ router.route("/:id").put(checkAuth, editarSede);
 router.get("/obtener/:id", checkAuth, obtenerClasesSede);
 router.get("/obtener-manana/:id", checkAuth, obtenerClasesSedeManana);
 
+router.get("/obtener-clases", checkAuth, obtenerClases);
+
+router.post("/obtener-clientes-clase/:id", checkAuth, obtenerAlumnosDeClase);
+
 router.post("/limpiar-asistencias", checkAuth, limpiarAsistencias);
 
 router.post("/obtener-dia/:id", obtenerClasesSedesPorDia);
+
+router.post(
+  "/eliminar-cliente-listado/:id",
+  checkAuth,
+  eliminarClienteDeClaseListado
+);
 
 router.post(
   "/obtener-inasistencias/:id",
@@ -65,6 +80,17 @@ router.post("/asignar-recupero/:id", checkAuth, recuperoClase);
 router.get("/obtener-clases-cliente/:id", checkAuth, obtenerClasesCliente);
 
 router.get("/consultar-primer-clase/:id", checkAuth, consultarPrimerclase);
+router.get(
+  "/consultar-asistencias/:id",
+  checkAuth,
+  comprobarAsistenciaClienteClase
+);
+
+router.get(
+  "/consultar-inasistencias/:id",
+  checkAuth,
+  comprobarInasistenciaClienteClase
+);
 
 router.get(
   "/obtener-clases-cliente2/:id",

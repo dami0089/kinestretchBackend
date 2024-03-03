@@ -87,6 +87,14 @@ const clienteSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
+    esPrimeraClase: {
+      type: Boolean,
+      default: true,
+    },
+    esRecupero: {
+      type: Boolean,
+      default: false,
+    },
     creador: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Usuario",

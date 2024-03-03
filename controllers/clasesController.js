@@ -203,7 +203,7 @@ const editarSede = async (req, res) => {
 
 const asignarClienteaClase = async (req, res) => {
   const { id } = req.params;
-  const { idClase } = req.body;
+  const { idClase, primerClase } = req.body;
 
   try {
     const clase = await Clases.findById(idClase);
@@ -236,6 +236,9 @@ const asignarClienteaClase = async (req, res) => {
     cliente.clases.push(idClase);
     cliente.nombreSede = clase.nombreSede;
     cliente.sede = clase.sede;
+    if (primerClase === "no") {
+      cliente.esPrimeraClase = false;
+    }
     // Guardar los cambios en la base de datos
     await clase.save();
     await cliente.save();
@@ -489,9 +492,18 @@ const obtenerClientesClase = async (req, res) => {
       id: cliente._id,
       nombre: cliente.nombre,
       apellido: cliente.apellido,
+      dni: cliente.dni,
+      email: cliente.email,
+      celular: cliente.celular,
+      diagnostico: cliente.diagnostico,
+      linkApto: cliente.linkApto,
+      nombreContactoEmergencia: cliente.nombreContactoEmergencia,
+      celularContactoEmergencia: cliente.celularContactoEmergencia,
+      esRecupero: cliente.esPrimeraClase,
       fechaUltimoPago: cliente.fechaUltimoPago,
       importeUltimoPago: cliente.importeUltimoPago,
       asistioHoy: cliente.asistioHoy,
+      esPrimeraClase: cliente.esPrimeraClase,
     });
 
     // Mapear los clientes y los de recupero
@@ -663,10 +675,14 @@ const asistencia = async (req, res) => {
     // Buscar la clase por ID
     const clase = await Clases.findById(id);
 
-    if (asistenciaExistente) {
+    if (cliente.esPrimeraClase) {
       if (!asistenciaExistente.clientes.includes(idCliente)) {
         asistenciaExistente.clientes.push(idCliente);
+
         await asistenciaExistente.save();
+        if (cliente.esPrimeraClase) {
+          cliente.esPrimeraClase = false;
+        }
         res.json({ msg: "Asistencia Registrada correctamente." });
       } else {
         res.status(400).json({
@@ -879,13 +895,25 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
     const { id } = req.params; // ID del cliente
     const { idClase } = req.body; // ID de la clase
 
-    // Verificar si el cliente ha asistido a alguna clase antes
-    const asistenciasPrevias = await Asistencias.find({ clientes: id });
-    console.log(asistenciasPrevias);
+    console.log(id);
+    console.log(idClase);
 
-    if (asistenciasPrevias.length === 0) {
-      // Si nunca ha asistido, eliminarlo de la clase
+    const cliente = await Cliente.findById(id);
+
+    console.log(cliente);
+
+    if (cliente.esPrimeraClase) {
       await Clases.updateOne({ _id: idClase }, { $pull: { clientes: id } });
+      const fechaInasistencia = moment()
+        .tz("America/Argentina/Buenos_Aires")
+        .toDate();
+      const nuevaInasistencia = new Inasistencias({
+        cliente: id,
+        clase: idClase,
+        fechaInasistencia: fechaInasistencia, // Usando la fecha y hora actual en Argentina
+      });
+
+      await nuevaInasistencia.save();
     } else {
       console.log("Entrando al else");
       const fechaInasistencia = moment()
@@ -911,11 +939,13 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 const consultarPrimerclase = async (req, res) => {
   const { id } = req.params;
 
+  const cliente = await Cliente.findById(id);
+
   try {
     const asistenciasPrevias = await Asistencias.find({ clientes: id });
 
     // Envía una respuesta solo si es la primera clase del cliente
-    if (asistenciasPrevias.length === 0) {
+    if (cliente.esPrimeraClase) {
       res.json({ esPrimerClase: true });
     } else {
       // Envía una respuesta vacía o no envíes nada
@@ -952,6 +982,141 @@ const eliminarClase = async (req, res) => {
   }
 };
 
+const obtenerClases = async (req, res) => {
+  try {
+    const clases = await Clases.find();
+
+    res.json(clases);
+  } catch (error) {
+    res.status(500).send("Error al obtener los clientes");
+  }
+};
+
+const obtenerAlumnosDeClase = async (req, res) => {
+  try {
+    const { id } = req.params; // ID de la clase
+
+    // Buscar la clase por ID y poblar los campos de clientes y recupero
+    const clase = await Clases.findById(id).populate(
+      "clientes recupero",
+      "nombre apellido dni email celular fechaNacimiento esRecupero diagnostico linkApto esPrimeraClase"
+    );
+
+    if (!clase) {
+      return res.status(404).send("Clase no encontrada");
+    }
+
+    // Combinar los arrays de clientes y recupero, añadiendo un campo para indicar si es recupero
+    const alumnos = [
+      ...clase.clientes.map((cliente) => ({
+        ...cliente.toObject(),
+        esRecupero: false,
+      })),
+      ...clase.recupero.map((cliente) => ({
+        ...cliente.toObject(),
+        esRecupero: true,
+      })),
+    ];
+
+    res.json(alumnos);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error al obtener los alumnos de la clase");
+  }
+};
+
+const eliminarClienteDeClaseListado = async (req, res) => {
+  const { id } = req.params;
+  const { clienteId } = req.body;
+  try {
+    // Buscar la clase y actualizarla
+    const clase = await Clases.findById(clienteId);
+
+    if (!clase) {
+      return res.status(404).send("Clase no encontrada");
+    }
+
+    // Verificar si el cliente está en la lista de clientes regulares y eliminarlo
+    const indiceCliente = clase.clientes.indexOf(id);
+    if (indiceCliente !== -1) {
+      clase.clientes.splice(indiceCliente, 1);
+    }
+
+    // Verificar si el cliente está en la lista de recuperación y eliminarlo
+    const indiceRecupero = clase.recupero.indexOf(id);
+    if (indiceRecupero !== -1) {
+      clase.recupero.splice(indiceRecupero, 1);
+    }
+
+    await clase.save(); // Guardar los cambios en la clase
+
+    res.status(200).send("Cliente eliminado de la clase correctamente");
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error al eliminar el cliente de la clase");
+  }
+};
+
+const comprobarAsistenciaClienteClase = async (req, res) => {
+  const { id } = req.params; // ID de la clase
+
+  try {
+    // Comenzamos por obtener la fecha actual sin la hora
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // Buscamos las asistencias para la clase y fecha dadas
+    const asistenciasHoy = await Asistencias.find({
+      clase: id,
+      fechaClase: {
+        $gte: hoy,
+        $lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000), // Menor que el día siguiente
+      },
+    }).populate("clientes"); // Para obtener detalles del cliente, si es necesario
+
+    // Extraemos los IDs de los clientes presentes
+    const clientesPresentes = asistenciasHoy
+      .map((asistencia) => asistencia.clientes.map((cliente) => cliente._id))
+      .flat(); // Usamos flat para convertir el array de arrays en un único array
+
+    // Devolvemos los IDs de los clientes presentes
+    res.json(clientesPresentes);
+  } catch (error) {
+    console.error("Error al comprobar asistencia de cliente: ", error);
+    res.status(500).send("Error al comprobar la asistencia de la clase");
+  }
+};
+
+const comprobarInasistenciaClienteClase = async (req, res) => {
+  const { id } = req.params; // ID de la clase
+  console.log(id);
+  try {
+    // Comenzamos por obtener la fecha actual sin la hora
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // Buscamos las inasistencias para la clase y fecha dadas
+    const inasistenciasHoy = await Inasistencias.find({
+      clase: id,
+      fechaInasistencia: {
+        $gte: hoy,
+        $lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000), // Menor que el día siguiente
+      },
+    }).populate("cliente"); // Cambiado de 'clientes' a 'cliente'
+
+    // Extraemos los IDs de los clientes ausentes
+    const clientesAusentes = inasistenciasHoy.map(
+      (inasistencia) => inasistencia.cliente._id
+    ); // Actualizado para adaptarse a la estructura correcta
+
+    // Devolvemos los IDs de los clientes ausentes
+    res.json(clientesAusentes);
+  } catch (error) {
+    console.error("Error al comprobar inasistencia de cliente: ", error);
+    res.status(500).send("Error al comprobar la inasistencia de la clase");
+  }
+};
+
 export {
   obtenerSedesActivas,
   nuevaClase,
@@ -983,4 +1148,9 @@ export {
   registrarInasistenciaPaginaProfesor,
   consultarPrimerclase,
   eliminarClase,
+  obtenerClases,
+  obtenerAlumnosDeClase,
+  eliminarClienteDeClaseListado,
+  comprobarAsistenciaClienteClase,
+  comprobarInasistenciaClienteClase,
 };

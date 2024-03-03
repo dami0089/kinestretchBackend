@@ -9,6 +9,7 @@ import { emailRegistro } from "../helpers/emails.js";
 import Clases from "../models/Clases.js";
 import Contable from "../models/Contable.js";
 import cron from "node-cron";
+import Certificados from "../models/Certificados.js";
 
 const obtenerClientesActivos = async (req, res) => {
   try {
@@ -99,6 +100,15 @@ const nuevoCliente = async (req, res) => {
 
     // const mensaje = `Hola ${cliente.nombre}, A VER LOS BOTONESSS!`;
     // await enviarMensajeConBotones(mensaje, cliente.celular);
+
+    if (cliente.aptoFisico == "si") {
+      const cert = new Certificados();
+      cert.cliente = clienteAlmacenado._id;
+      cert.fechaEntrega = cliente.fechaApto;
+      cert.linkDrive = cliente.linkApto;
+
+      await cert.save();
+    }
 
     res.json(clienteAlmacenado);
   } catch (error) {
@@ -536,6 +546,75 @@ cron.schedule("30 0 * * *", () => {
   eliminarRecuperosDiaAnterior();
 });
 
+const obtenerDatosCertificado = async (req, res) => {
+  const { id } = req.params;
+
+  const certificado = await Certificados.findOne({ cliente: id });
+  console.log(certificado);
+  try {
+    res.json(certificado);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const nuevoCertificado = async (req, res) => {
+  const { id } = req.params;
+  const { fechaE, fechaV, link } = req.body;
+
+  const cliente = await Cliente.findById(id);
+
+  const certificado = await Certificados.findOne({ cliente: id });
+
+  if (certificado) {
+    certificado.fechaEntrega = fechaE;
+    certificado.fechaVencimiento = fechaV;
+    certificado.linkDrive = link;
+    certificado.cliente = id;
+    cliente.linkApto = link;
+
+    try {
+      await cliente.save();
+      await certificado.save();
+      res.json({ msg: "Certificado actualizado correctamente" });
+    } catch (error) {
+      console.log(error);
+    }
+  } else {
+    const nuevoCert = new Certificados(req.body);
+    nuevoCert.fechaEntrega = fechaE;
+    nuevoCert.fechaVencimiento = fechaV;
+    nuevoCert.linkDrive = link;
+    cliente.linkApto = link;
+    nuevoCert.cliente = id;
+
+    try {
+      await cliente.save();
+      await nuevoCert.save();
+      res.json({ msg: "Certificado guardado con exito" });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+};
+
+const editarDiagnostico = async (req, res) => {
+  const { id } = req.params;
+  const { diagnostico } = req.body;
+
+  const cliente = await Cliente.findById(id);
+
+  try {
+    cliente.diagnostico = diagnostico;
+
+    await cliente.save();
+
+    res.json({ msg: "Diagnostico Almacenado Correctamente" });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 export {
   obtenerClientesActivos,
   nuevoCliente,
@@ -561,4 +640,7 @@ export {
   obtenerCobrosProfesorAdmin,
   registrarPagoPerfilAdmin,
   otorgarCreditos,
+  obtenerDatosCertificado,
+  nuevoCertificado,
+  editarDiagnostico,
 };

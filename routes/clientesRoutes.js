@@ -26,6 +26,9 @@ import {
   obtenerCobrosProfesorAdmin,
   registrarPagoPerfilAdmin,
   otorgarCreditos,
+  obtenerDatosCertificado,
+  nuevoCertificado,
+  editarDiagnostico,
 } from "../controllers/clientesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -42,6 +45,9 @@ router.get("/obtener/:id", checkAuth, obtenerCliente);
 router.get("/buscar/:id", checkAuth, obtenerUsuario);
 router.get("/clases-cliente/:id", checkAuth, obtenerUsuario);
 
+router.get("/obtener-certificados/:id", checkAuth, obtenerDatosCertificado);
+router.post("/guardar-certificado/:id", checkAuth, nuevoCertificado);
+
 router.get("/inactivos", checkAuth, obtenerClientesInactivos);
 router.get("/pagos/:id", checkAuth, obtenerPagosCliente);
 
@@ -52,6 +58,7 @@ router.put("/desactivar-activar/:id", checkAuth, desactivarCliente);
 router.post("/comprobar", checkAuth, comprobarCliente);
 router.post("/desactivar/:id", checkAuth, desactivarCliente);
 router.post("/activar/:id", checkAuth, activarCliente);
+router.post("/editar-diagnostico/:id", checkAuth, editarDiagnostico);
 
 router.get(
   "/registros-contables-profesor/:id",
