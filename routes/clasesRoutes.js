@@ -37,6 +37,8 @@ import {
   eliminarClienteDeClaseListado,
   comprobarAsistenciaClienteClase,
   comprobarInasistenciaClienteClase,
+  editarClase,
+  enviarMensajeClase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -57,6 +59,10 @@ router.post("/obtener-clientes-clase/:id", checkAuth, obtenerAlumnosDeClase);
 router.post("/limpiar-asistencias", checkAuth, limpiarAsistencias);
 
 router.post("/obtener-dia/:id", obtenerClasesSedesPorDia);
+
+router.post("/editar-clase/:id", editarClase);
+
+router.post("/enviar-mensaje/:id", checkAuth, enviarMensajeClase);
 
 router.post(
   "/eliminar-cliente-listado/:id",

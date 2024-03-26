@@ -502,6 +502,21 @@ const otorgarCreditos = async (req, res) => {
   res.json({ msg: "OK" });
 };
 
+const quitarCredito = async (req, res) => {
+  const { id } = req.params;
+
+  const cliente = await Cliente.findById(id);
+
+  if (cliente.creditos) {
+    cliente.creditos = cliente.creditos - 1;
+    await cliente.save();
+    res.json({ msg: "OK" });
+  } else {
+    const error = new Error("No tiene creditos para restar");
+    return res.status(404).json({ msg: error.message });
+  }
+};
+
 const eliminarRecuperosDiaAnterior = async () => {
   try {
     // Obtén el día de la semana correspondiente al día anterior en horario de Argentina
@@ -643,4 +658,5 @@ export {
   obtenerDatosCertificado,
   nuevoCertificado,
   editarDiagnostico,
+  quitarCredito,
 };

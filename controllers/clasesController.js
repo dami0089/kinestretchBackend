@@ -386,8 +386,19 @@ const obtenerClasesCliente = async (req, res) => {
 const obtenerClasesClienteAdmin = async (req, res) => {
   const { id } = req.params;
 
-  const clases = await Clases.find({ clientes: id });
+  // Buscar clases donde el cliente está inscrito o en recuperación
+  const clases = await Clases.aggregate([
+    {
+      $match: {
+        $or: [
+          { clientes: mongoose.Types.ObjectId(id) },
+          { recupero: mongoose.Types.ObjectId(id) },
+        ],
+      },
+    },
+  ]);
 
+  // Enviar las clases al cliente
   res.json(clases);
 };
 
@@ -1117,6 +1128,85 @@ const comprobarInasistenciaClienteClase = async (req, res) => {
   }
 };
 
+const editarClase = async (req, res) => {
+  const { id } = req.params;
+  const { sede, profesor } = req.body;
+
+  const clase = await Clases.findById(id);
+
+  if (!clase) {
+    const error = new Error("Clase no encontrada");
+    return res.status(404).json({ msg: error.message });
+  }
+
+  if (clase.profesor !== req.body.profesor) {
+    const profe = await Profesor.findById(profesor);
+    clase.nombreProfe = profe.nombre + " " + profe.apellido;
+    clase.profesor = profesor;
+  }
+
+  if (clase.sede !== req.body.sede) {
+    const lugar = await Sedes.findById(sede);
+    clase.nombreSede = lugar.nombre;
+    clase.sede = sede;
+  }
+
+  if (clase.horarioInicio !== req.body.horarioInicio) {
+    clase.horarioInicio = req.body.horarioInicio;
+    clase.horarioFin = parseInt(req.body.horarioInicio) + 1;
+  }
+
+  clase.diaDeLaSemana = req.body.diaDeLaSemana;
+  clase.cupo = req.body.cupo;
+
+  try {
+    const claseAlmacenada = await clase.save();
+    res.json(claseAlmacenada);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const enviarMensajeClase = async (req, res) => {
+  const { id } = req.params;
+  const { mensaje } = req.body;
+
+  try {
+    // Encuentra la clase por ID y rellena clientes y recupero
+    const clase = await Clases.findById(id).populate("clientes recupero");
+
+    // Combinar y desduplicar los clientes y recupero
+    const todosLosClientes = [...clase.clientes, ...clase.recupero];
+    const clientesUnicos = Array.from(
+      new Set(todosLosClientes.map((cliente) => cliente._id.toString()))
+    ).map((id) =>
+      todosLosClientes.find((cliente) => cliente._id.toString() === id)
+    );
+
+    // Inicializa una lista para guardar los errores
+    const errores = [];
+
+    for (const cliente of clientesUnicos) {
+      try {
+        await enviarMensaje(mensaje, cliente.celular);
+        await esperar(500); // Espera medio segundo antes de enviar el siguiente mensaje
+      } catch (error) {
+        // Guarda el error y el cliente asociado para revisarlo más tarde
+        errores.push({ cliente, error });
+      }
+    }
+
+    // Puedes decidir qué hacer con los errores después del bucle
+    if (errores.length > 0) {
+      console.log("Hubo errores al enviar algunos mensajes:", errores);
+    }
+
+    res.json({ msg: "OK", errores });
+  } catch (error) {
+    res.status(404).json({ msg: error.message });
+  }
+};
+
 export {
   obtenerSedesActivas,
   nuevaClase,
@@ -1153,4 +1243,6 @@ export {
   eliminarClienteDeClaseListado,
   comprobarAsistenciaClienteClase,
   comprobarInasistenciaClienteClase,
+  editarClase,
+  enviarMensajeClase,
 };

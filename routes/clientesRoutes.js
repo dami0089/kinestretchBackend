@@ -29,6 +29,7 @@ import {
   obtenerDatosCertificado,
   nuevoCertificado,
   editarDiagnostico,
+  quitarCredito,
 } from "../controllers/clientesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -90,5 +91,6 @@ router.post(
 );
 
 router.post("/otorgar-creditos/:id", checkAuth, otorgarCreditos);
+router.post("/quitar-creditos/:id", checkAuth, quitarCredito);
 
 export default router;
