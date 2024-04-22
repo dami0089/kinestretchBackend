@@ -92,11 +92,11 @@ const nuevoCliente = async (req, res) => {
 			};
 
 			await emailRegistroNuevo(infoMail);
-			await enviarMensaje(mensaje, usuario.celu);
+			// await enviarMensaje(mensaje, usuario.celu);
 		} else {
 			const mensaje = `Hola ${cliente.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo donde podras gestionar tus reservas de manera mas agil y comoda. Para acceder a esta plataforma, precisamos que nos compartas tu email asi lo damos de alta. De lo contrario, tambien podras interactuar con nuestro bot cuando precises realizar una cancelacion. Que tengas un gran dia!`;
 
-			await enviarMensaje(mensaje, cliente.celular);
+			// await enviarMensaje(mensaje, cliente.celular);
 		}
 
 		// const mensaje = `Hola ${cliente.nombre}, A VER LOS BOTONESSS!`;
@@ -304,7 +304,7 @@ const enviarMensajeAlCliente = async (req, res) => {
 
 	try {
 		const cliente = await Cliente.findById(id);
-		await enviarMensaje(mensaje, cliente.celular);
+		// await enviarMensaje(mensaje, cliente.celular);
 		res.json({ msg: "OK" });
 	} catch (error) {
 		res.status(404).json({ msg: error.message });

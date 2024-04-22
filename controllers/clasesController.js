@@ -879,7 +879,7 @@ const cancelarClaseCliente = async (req, res) => {
 
 	if (usuario.celu) {
 		const mensaje = `Hola ${usuario.nombre}. Este es un mensaje automatico enviado por nuestro sistema, para informarte que tu clase se cancelo correctamente. Muchas gracias!`;
-		await enviarMensaje(usuario.celu, mensaje);
+		// await enviarMensaje(usuario.celu, mensaje);
 	}
 
 	try {
@@ -1225,7 +1225,7 @@ const enviarMensajeClase = async (req, res) => {
 
 		for (const cliente of clientesUnicos) {
 			try {
-				await enviarMensaje(mensaje, cliente.celular);
+				// await enviarMensaje(mensaje, cliente.celular);
 				await esperar(500); // Espera medio segundo antes de enviar el siguiente mensaje
 			} catch (error) {
 				// Guarda el error y el cliente asociado para revisarlo más tarde

@@ -8,8 +8,6 @@ import profesoresRoutes from "./routes/profesoresRoutes.js";
 import sedesRoutes from "./routes/sedesRoutes.js";
 import clasesRoutes from "./routes/clasesRoutes.js";
 
-import { bot } from "./whatsappbot.js";
-
 const app = express();
 app.use(express.json());
 

@@ -236,7 +236,7 @@ export const emailRegistroNuevo = async (datos) => {
 					<span style="font-weight: bold"> cuenta personal</span>, diseñada para
 					ofrecerte una
 					<span style="color: #00aef2"
-						>experiencia cómoda, fáacil y eficiente.</span
+						>experiencia cómoda, fácil y eficiente.</span
 					>
 				</p>
 
