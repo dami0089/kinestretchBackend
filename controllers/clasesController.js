@@ -16,6 +16,7 @@ import {
 	emailClaseCancelada,
 	emailProfesorClaseAsignada,
 	encuesta,
+	mensajeGrupaloIndividual,
 	notificacionEncuesta,
 } from "../helpers/emails.js";
 import { enviarMensaje } from "../whatsappbot.js";
@@ -359,7 +360,10 @@ const obtenerClasesCliente = async (req, res) => {
 		const clases = await Clases.aggregate([
 			{
 				$match: {
-					$or: [{ clientes: clienteId }, { recupero: clienteId }],
+					$or: [
+						{ clientes: { $in: clienteId } }, // Buscar coincidencias en el campo clientes
+						{ recupero: { $in: clienteId } }, // Buscar coincidencias en el campo recupero
+					],
 				},
 			},
 			{
@@ -389,7 +393,7 @@ const obtenerClasesCliente = async (req, res) => {
 				},
 			},
 		]);
-
+		console.log(clases);
 		res.json(clases);
 	} catch (error) {
 		console.error("Error:", error);
@@ -699,14 +703,6 @@ const asistencia = async (req, res) => {
 
 		// Buscar la clase por ID
 		const clase = await Clases.findById(id);
-
-		console.log(id);
-		console.log(idCliente);
-		console.log(cliente);
-		console.log(hoyInicio);
-		console.log(hoyFin);
-		console.log(asistenciaExistente);
-		console.log(clase);
 
 		if (cliente.esPrimeraClase) {
 			if (
@@ -1206,7 +1202,7 @@ const editarClase = async (req, res) => {
 
 const enviarMensajeClase = async (req, res) => {
 	const { id } = req.params;
-	const { mensaje } = req.body;
+	const { mensaje, asunto } = req.body;
 
 	try {
 		// Encuentra la clase por ID y rellena clientes y recupero
@@ -1225,7 +1221,7 @@ const enviarMensajeClase = async (req, res) => {
 
 		for (const cliente of clientesUnicos) {
 			try {
-				// await enviarMensaje(mensaje, cliente.celular);
+				await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
 				await esperar(500); // Espera medio segundo antes de enviar el siguiente mensaje
 			} catch (error) {
 				// Guarda el error y el cliente asociado para revisarlo más tarde

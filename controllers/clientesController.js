@@ -5,7 +5,11 @@ dotenv.config();
 
 import { enviarMensaje } from "../whatsappbot.js";
 import generarId from "../helpers/generarId.js";
-import { emailRegistro, emailRegistroNuevo } from "../helpers/emails.js";
+import {
+	emailRegistro,
+	emailRegistroNuevo,
+	mensajeGrupaloIndividual,
+} from "../helpers/emails.js";
 import Clases from "../models/Clases.js";
 import Contable from "../models/Contable.js";
 import cron from "node-cron";
@@ -79,7 +83,8 @@ const nuevoCliente = async (req, res) => {
 			usuario.apellido = cliente.apellido;
 			usuario.dni = cliente.dni;
 			usuario.celu = cliente.celular;
-			usuario.token = generarId();
+			usuario.password = cliente.dni;
+			// usuario.token = generarId();
 			usuario.email = cliente.email.toLowerCase();
 			usuario.rol = "cliente";
 			usuario.cliente = clienteAlmacenado._id;
@@ -88,7 +93,6 @@ const nuevoCliente = async (req, res) => {
 			const infoMail = {
 				email: usuario.email,
 				nombre: usuario.nombre,
-				token: usuario.token,
 			};
 
 			await emailRegistroNuevo(infoMail);
@@ -300,11 +304,11 @@ const activarCliente = async (req, res) => {
 
 const enviarMensajeAlCliente = async (req, res) => {
 	const { id } = req.params;
-	const { mensaje } = req.body;
+	const { mensaje, asunto } = req.body;
 
 	try {
 		const cliente = await Cliente.findById(id);
-		// await enviarMensaje(mensaje, cliente.celular);
+		await mensajeGrupaloIndividual(cliente.email, asunto, mensaje);
 		res.json({ msg: "OK" });
 	} catch (error) {
 		res.status(404).json({ msg: error.message });

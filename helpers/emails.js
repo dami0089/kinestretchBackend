@@ -236,7 +236,7 @@ export const emailRegistroNuevo = async (datos) => {
 					<span style="font-weight: bold"> cuenta personal</span>, diseñada para
 					ofrecerte una
 					<span style="color: #00aef2"
-						>experiencia cómoda, fácil y eficiente.</span
+						>experiencia cómoda, fácil y eficiente. La contraseña para ingresar es tu DNI, podras cambiarla cuando gustes</span
 					>
 				</p>
 
@@ -254,9 +254,9 @@ export const emailRegistroNuevo = async (datos) => {
 					/>
 				</div>
 
-				<a href='${process.env.FRONTEND_URL}/crear-password/${token}' style="text-align: center; display: block; margin-top: 25px">
+				<a href='${process.env.FRONTEND_URL}' style="text-align: center; display: block; margin-top: 25px">
     <img
-        src="https://www.kinestretch.com.ar/wp-content/uploads/2024/04/Asset-43@2x-8.png"
+        src="https://www.kinestretch.com.ar/wp-content/uploads/2024/04/Asset-49@2x-8.png"
         style="height: 37px; width: 263px; background-size: cover"
     />
 </a>
@@ -880,4 +880,90 @@ export const notificacionEncuesta = async (
 	} catch (error) {
 		console.log(error);
 	}
+};
+
+export const mensajeGrupaloIndividual = async (email, asunto, mensaje) => {
+	const hemail = process.env.EMAIL;
+	const hpass = process.env.PASSWORD;
+
+	const transport = nodemailer.createTransport({
+		service: "gmail",
+		auth: {
+			type: "OAuth2",
+			user: "posturalapp.arg@gmail.com",
+			clientId: process.env.clientId,
+			clientSecret: process.env.clientSecret,
+			refreshToken: process.env.refreshToken,
+		},
+	});
+
+	const info = await transport.sendMail({
+		from: 'Kinestretch!" <posturalapp.arg@gmail.com>',
+		to: email,
+		subject: `👋🏼 ${asunto}`,
+		text: `${asunto}`,
+		html: `<body>
+		<div style="margin: 0; padding: 0; font-family: Arial, sans-serif">
+  <style>
+    @media only screen and (max-width: 620px) {
+      .responsive-table {
+        width: 100% !important;
+      }
+      .responsive-image {
+        width: 100% !important;
+        height: auto !important;
+      }
+      .responsive-padding {
+        padding: 10px !important;
+      }
+      .responsive-text {
+        font-size: 14px !important;
+      }
+      .wrapper {
+        width: 100% !important;
+        overflow: hidden;
+        margin-top: 20px;
+      }
+    }
+  </style>
+			<div
+				style="
+					max-width: 620px;
+					margin: auto;
+					overflow: hidden;
+					margin-top: 20px;
+				"
+				class="wrapper"
+			>
+				<div style="text-align: left">
+					<img
+						src="https://www.kinestretch.com.ar/wp-content/uploads/2024/04/Asset-80@2x-8.png"
+						class="responsive-image"
+						style="width: 100%; background-size: cover"
+					/>
+				</div>
+				<div style="text-align: center">
+					<h1 style="color: #17409C;">${asunto}</h1>
+				</div>
+
+				<div style="text-align: center">
+					<p style="color: #17409C;">${mensaje}</p>
+				</div>
+				
+
+				<div style="text-align: left; margin-top: 20px;">
+					<img
+						src="https://www.kinestretch.com.ar/wp-content/uploads/2024/04/Asset-52@2x-8.png"
+						class="responsive-image"
+						style="width: 100%; background-size: cover"
+			class="responsive-image"
+
+
+					/>
+				</div>
+
+        
+		</div>
+	</body>`,
+	});
 };
