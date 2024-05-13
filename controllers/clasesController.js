@@ -939,12 +939,9 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 		const { id } = req.params; // ID del cliente
 		const { idClase } = req.body; // ID de la clase
 
-		console.log(id);
-		console.log(idClase);
-
 		const cliente = await Cliente.findById(id);
 
-		console.log(cliente);
+		const clase = await Clases.findById(idClase);
 
 		if (cliente.esPrimeraClase) {
 			await Clases.updateOne({ _id: idClase }, { $pull: { clientes: id } });
@@ -971,6 +968,14 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 			});
 
 			await nuevaInasistencia.save();
+		}
+
+		// Verificar si el cliente está en la lista de recuperos de la clase y eliminarlo si es necesario
+		if (clase.recupero && clase.recupero.includes(id)) {
+			clase.recupero = clase.recupero.filter(
+				(clienteId) => clienteId.toString() !== id.toString()
+			);
+			await clase.save();
 		}
 
 		res.status(200).send("Proceso completado con éxito.");
@@ -1072,9 +1077,13 @@ const obtenerAlumnosDeClase = async (req, res) => {
 const eliminarClienteDeClaseListado = async (req, res) => {
 	const { id } = req.params;
 	const { clienteId } = req.body;
+
 	try {
 		// Buscar la clase y actualizarla
 		const clase = await Clases.findById(clienteId);
+		console.log(clase);
+		const cliente = await Cliente.findById(id);
+		console.log(cliente);
 
 		if (!clase) {
 			return res.status(404).send("Clase no encontrada");
@@ -1092,7 +1101,10 @@ const eliminarClienteDeClaseListado = async (req, res) => {
 			clase.recupero.splice(indiceRecupero, 1);
 		}
 
-		await clase.save(); // Guardar los cambios en la clase
+		cliente.isActivo = false;
+
+		await cliente.save();
+		await clase.save();
 
 		res.status(200).send("Cliente eliminado de la clase correctamente");
 	} catch (error) {
