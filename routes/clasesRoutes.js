@@ -40,6 +40,10 @@ import {
 	editarClase,
 	enviarMensajeClase,
 	encuestaRecibida,
+	obtenerClasesDelMes,
+	cancelarClaseClienteNuevo,
+	obtenerAlumnosInasistentesDeClase,
+	eliminarClienteRecupero,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -56,6 +60,12 @@ router.get("/obtener-manana/:id", checkAuth, obtenerClasesSedeManana);
 router.get("/obtener-clases", checkAuth, obtenerClases);
 
 router.post("/obtener-clientes-clase/:id", checkAuth, obtenerAlumnosDeClase);
+
+router.post(
+	"/obtener-inasistentes-clase/:id",
+	checkAuth,
+	obtenerAlumnosInasistentesDeClase
+);
 
 router.post("/limpiar-asistencias", checkAuth, limpiarAsistencias);
 
@@ -133,8 +143,11 @@ router.post("/comprobar-asistencia/:id", checkAuth, comprobarAsistencia);
 router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
 
 router.post("/cancelar-clase-cliente/:id", checkAuth, cancelarClaseCliente);
-
-router.post("/cancelar-clase-cliente/:id", checkAuth, cancelarClaseCliente);
+router.post(
+	"/cancelar-clase-cliente-nuevo/:id",
+	checkAuth,
+	cancelarClaseClienteNuevo
+);
 
 router.post(
 	"/obtener-clases-ordenadas-inicio/",
@@ -151,5 +164,13 @@ router.post(
 router.delete("/eliminar-clase/:id", checkAuth, eliminarClase);
 
 router.post("/encuesta-recibida/:id", encuestaRecibida);
+
+router.get("/obtener-clases-mes/:id", checkAuth, obtenerClasesDelMes);
+
+router.post(
+	"/eliminar-cliente-recupero/:id",
+	checkAuth,
+	eliminarClienteRecupero
+);
 
 export default router;
