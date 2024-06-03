@@ -318,7 +318,7 @@ const asignarClienteaClase = async (req, res) => {
 		}
 		// Guardar los cambios en la base de datos
 		await clase.save();
-		await cliente.save();
+		const clienteAlmacenado = await cliente.save();
 
 		const diayhorario = `${clase.diaDeLaSemana} - ${clase.horarioInicio} hs`;
 
@@ -329,7 +329,7 @@ const asignarClienteaClase = async (req, res) => {
 			clase.nombreProfe,
 			cliente.email
 		);
-
+		console.log(clienteAlmacenado);
 		await res.json(clase);
 	} catch (error) {
 		console.error(error);
@@ -396,9 +396,16 @@ const eliminarClienteDeClase = async (req, res) => {
 		if (!clase) {
 			return res.status(404).json({ message: "Clase no encontrada" });
 		}
-		clase.clientes = clase.clientes.filter(
-			(clienteId) => !clienteId.equals(idCliente)
-		);
+		if (clase.clientes.includes(idCliente)) {
+			clase.clientes = clase.clientes.filter(
+				(clienteId) => !clienteId.equals(idCliente)
+			);
+		}
+		if (clase.recupero.includes(idCliente)) {
+			clase.recupero = clase.clientes.filter(
+				(clienteId) => !clienteId.equals(idCliente)
+			);
+		}
 		await clase.save();
 
 		// Buscar el cliente y eliminar el ID de la clase
@@ -672,7 +679,7 @@ const obtenerClientesClase = async (req, res) => {
 			linkApto: cliente.linkApto,
 			nombreContactoEmergencia: cliente.nombreContactoEmergencia,
 			celularContactoEmergencia: cliente.celularContactoEmergencia,
-			esRecupero: cliente.esPrimeraClase,
+			esRecupero: cliente.esRecupero,
 			fechaUltimoPago: cliente.fechaUltimoPago,
 			importeUltimoPago: cliente.importeUltimoPago,
 			asistioHoy: cliente.asistioHoy,
@@ -887,11 +894,15 @@ const asistencia = async (req, res) => {
 			res.json({ msg: "Nueva asistencia creada correctamente." });
 		}
 
+		console.log("Recuperos en esa clase: ", clase.recupero);
+		console.log("Cliente: ", idCliente);
 		// Verificar si el cliente está en la lista de recuperos de la clase y eliminarlo si es necesario
 		if (clase.recupero && clase.recupero.includes(idCliente)) {
+			console.log("Cliente en lista de recuperos");
 			clase.recupero = clase.recupero.filter(
 				(clienteId) => clienteId.toString() !== idCliente.toString()
 			);
+			console.log(clase.recupero);
 			await clase.save();
 		}
 
@@ -1291,7 +1302,7 @@ const obtenerAlumnosDeClase = async (req, res) => {
 				)
 				.map((cliente) => ({
 					...cliente.toObject(),
-					esRecupero: false,
+					// esRecupero: false,
 				})),
 			...clase.recupero
 				.filter(
@@ -1299,20 +1310,17 @@ const obtenerAlumnosDeClase = async (req, res) => {
 				)
 				.map((cliente) => ({
 					...cliente.toObject(),
-					esRecupero: true,
+					// esRecupero: true,
 				})),
 		];
 
 		console.log("Alumnos después de filtrar:", alumnos);
-
 		res.json(alumnos);
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Error al obtener los alumnos de la clase");
 	}
 };
-
-export default obtenerAlumnosDeClase;
 
 const obtenerAlumnosInasistentesDeClase = async (req, res) => {
 	try {
@@ -1366,6 +1374,69 @@ const obtenerAlumnosInasistentesDeClase = async (req, res) => {
 		});
 		console.log(alumnosInasistentes);
 		res.json(alumnosInasistentes);
+	} catch (error) {
+		console.error(error);
+		res
+			.status(500)
+			.send("Error al obtener los alumnos inasistentes de la clase");
+	}
+};
+
+const obtenerAlumnosAsistentesDeClase = async (req, res) => {
+	try {
+		const { id } = req.params; // ID de la clase
+
+		// Buscar la clase por ID y poblar los campos de clientes y recupero
+		const clase = await Clases.findById(id).populate(
+			"clientes recupero",
+			"nombre apellido dni email celular fechaNacimiento diagnostico linkApto esPrimeraClase"
+		);
+
+		if (!clase) {
+			return res.status(404).send("Clase no encontrada");
+		}
+
+		// Calcular la fecha de la clase basándonos en el día de la semana de la clase
+		const hoy = new Date();
+		const diasSemana = [
+			"domingo",
+			"lunes",
+			"martes",
+			"miércoles",
+			"jueves",
+			"viernes",
+			"sábado",
+		];
+		const indiceDiaClase = diasSemana.indexOf(
+			clase.diaDeLaSemana.toLowerCase()
+		);
+		const hoyIndice = hoy.getDay();
+
+		let fechaClase = new Date();
+		fechaClase.setDate(hoy.getDate() + ((indiceDiaClase + 7 - hoyIndice) % 7));
+
+		// Buscar inasistencias para la clase y la fecha calculada
+		const asistencias = await Asistencias.find({
+			clase: id,
+			fechaAsistencia: {
+				$gte: new Date(fechaClase.setHours(0, 0, 0, 0)),
+				$lt: new Date(fechaClase.setHours(23, 59, 59, 999)),
+			},
+		}).populate(
+			"clientes",
+			"nombre apellido dni email celular fechaNacimiento"
+		);
+
+		// Filtrar los alumnos asistentes
+		const alumnosAsistentes = asistencias.map((asistencia) => {
+			const cliente = asistencia.clientes.toObject();
+			// cliente.esRecupero = clase.recupero.some((rec) =>
+			// 	rec._id.equals(cliente._id)
+			// );
+			return cliente;
+		});
+		console.log(asistencias);
+		res.json(asistencias);
 	} catch (error) {
 		console.error(error);
 		res
@@ -1609,18 +1680,18 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 	console.log("Hora de inicio de la clase:", horaInicioClase);
 
 	// Si la clase es hoy, verificamos la hora actual contra la hora de inicio
-	if (fechaClase.isSame(ahora, "day")) {
-		if (
-			(horaActual > horaInicioClase - 1 && horaActual < horaInicioClase) ||
-			(horaActual === horaInicioClase - 1 && minutoActual >= 0) ||
-			horaActual >= horaInicioClase
-		) {
-			return res.status(400).json({
-				error:
-					"No puedes cancelar la clase una hora antes o después de la hora de inicio.",
-			});
-		}
-	}
+	// if (fechaClase.isSame(ahora, "day")) {
+	// 	if (
+	// 		(horaActual > horaInicioClase - 1 && horaActual < horaInicioClase) ||
+	// 		(horaActual === horaInicioClase - 1 && minutoActual >= 0) ||
+	// 		horaActual >= horaInicioClase
+	// 	) {
+	// 		return res.status(400).json({
+	// 			error:
+	// 				"No puedes cancelar la clase una hora antes o después de la hora de inicio.",
+	// 		});
+	// 	}
+	// }
 
 	// Verificar si el cliente ya ha cancelado una clase en el mes de la fecha seleccionada
 	const inicioMes = fechaClase.clone().startOf("month").toDate();
@@ -1751,6 +1822,54 @@ const eliminarClienteRecupero = async (req, res) => {
 	}
 };
 
+const obtenerRegistrosAsistenciaCliente = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		// Buscar asistencias del cliente
+		const asistencias = await Asistencias.find({
+			clientes: mongoose.Types.ObjectId(id),
+		})
+			.populate("clase")
+			.lean();
+
+		// Buscar inasistencias del cliente
+		const inasistencias = await Inasistencias.find({
+			cliente: mongoose.Types.ObjectId(id),
+		})
+			.populate("clase")
+			.lean();
+
+		// Formatear las asistencias
+		const asistenciasFormateadas = asistencias.map((asistencia) => ({
+			fecha: DateTime.fromJSDate(asistencia.fechaClase).toFormat("dd/MM/yyyy"),
+			diaClase: asistencia.clase.diaDeLaSemana,
+			tipo: "asistencia",
+		}));
+
+		// Formatear las inasistencias
+		const inasistenciasFormateadas = inasistencias.map((inasistencia) => ({
+			fecha: DateTime.fromJSDate(inasistencia.fechaInasistencia).toFormat(
+				"dd/MM/yyyy"
+			),
+			diaClase: inasistencia.clase.diaDeLaSemana,
+			tipo: "inasistencia",
+		}));
+
+		// Combinar asistencias e inasistencias en un solo array
+		const resultado = [...asistenciasFormateadas, ...inasistenciasFormateadas];
+
+		// Enviar el resultado al cliente
+		console.log(resultado);
+		res.json(resultado);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({
+			message: "Error al obtener asistencias e inasistencias del cliente",
+		});
+	}
+};
+
 export {
 	obtenerSedesActivas,
 	nuevaClase,
@@ -1794,4 +1913,6 @@ export {
 	cancelarClaseClienteNuevo,
 	obtenerAlumnosInasistentesDeClase,
 	eliminarClienteRecupero,
+	obtenerAlumnosAsistentesDeClase,
+	obtenerRegistrosAsistenciaCliente,
 };

@@ -44,6 +44,8 @@ import {
 	cancelarClaseClienteNuevo,
 	obtenerAlumnosInasistentesDeClase,
 	eliminarClienteRecupero,
+	obtenerAlumnosAsistentesDeClase,
+	obtenerRegistrosAsistenciaCliente,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -60,6 +62,12 @@ router.get("/obtener-manana/:id", checkAuth, obtenerClasesSedeManana);
 router.get("/obtener-clases", checkAuth, obtenerClases);
 
 router.post("/obtener-clientes-clase/:id", checkAuth, obtenerAlumnosDeClase);
+
+router.post(
+	"/obtener-todas-asistencias-clase/:id",
+	checkAuth,
+	obtenerAlumnosAsistentesDeClase
+);
 
 router.post(
 	"/obtener-inasistentes-clase/:id",
@@ -171,6 +179,12 @@ router.post(
 	"/eliminar-cliente-recupero/:id",
 	checkAuth,
 	eliminarClienteRecupero
+);
+
+router.get(
+	"/obtener-registros-asistencia/:id",
+	checkAuth,
+	obtenerRegistrosAsistenciaCliente
 );
 
 export default router;
