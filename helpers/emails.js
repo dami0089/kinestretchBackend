@@ -882,7 +882,7 @@ export const notificacionEncuesta = async (
 	}
 };
 
-export const mensajeGrupaloIndividual = async (email, asunto, mensaje) => {
+export const mensajeGrupaloIndividual = async (email, mensaje, asunto) => {
 	const hemail = process.env.EMAIL;
 	const hpass = process.env.PASSWORD;
 
