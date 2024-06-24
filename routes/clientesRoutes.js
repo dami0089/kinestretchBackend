@@ -3,41 +3,42 @@ import express from "express";
 const router = express.Router();
 
 import {
-  obtenerClientesActivos,
-  nuevoCliente,
-  obtenerCliente,
-  editarCliente,
-  comprobarCliente,
-  obtenerUsuario,
-  desactivarCliente,
-  obtenerUsuariosProfile,
-  obtenerClientesInactivos,
-  desactivarcliente,
-  enviarMensajeAlCliente,
-  registrarPago,
-  obtenerPagosCliente,
-  editarPago,
-  obtenerCobrosProfesor,
-  registrarRetiro,
-  hacerCierre,
-  activarCliente,
-  editarClientePerfilCliente,
-  obtenerMovimientosCliente,
-  obtenerCobrosProfesorAdmin,
-  registrarPagoPerfilAdmin,
-  otorgarCreditos,
-  obtenerDatosCertificado,
-  nuevoCertificado,
-  editarDiagnostico,
-  quitarCredito,
+	obtenerClientesActivos,
+	nuevoCliente,
+	obtenerCliente,
+	editarCliente,
+	comprobarCliente,
+	obtenerUsuario,
+	desactivarCliente,
+	obtenerUsuariosProfile,
+	obtenerClientesInactivos,
+	desactivarcliente,
+	enviarMensajeAlCliente,
+	registrarPago,
+	obtenerPagosCliente,
+	editarPago,
+	obtenerCobrosProfesor,
+	registrarRetiro,
+	hacerCierre,
+	activarCliente,
+	editarClientePerfilCliente,
+	obtenerMovimientosCliente,
+	obtenerCobrosProfesorAdmin,
+	registrarPagoPerfilAdmin,
+	otorgarCreditos,
+	obtenerDatosCertificado,
+	nuevoCertificado,
+	editarDiagnostico,
+	quitarCredito,
+	eliminarPago,
 } from "../controllers/clientesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
 
 router
-  .route("/")
-  .get(checkAuth, obtenerClientesActivos)
-  .post(checkAuth, nuevoCliente);
+	.route("/")
+	.get(checkAuth, obtenerClientesActivos)
+	.post(checkAuth, nuevoCliente);
 router.route("/:id").put(checkAuth, editarCliente);
 
 router.put("/editar-desde-perfil/:id", checkAuth, editarClientePerfilCliente);
@@ -62,15 +63,15 @@ router.post("/activar/:id", checkAuth, activarCliente);
 router.post("/editar-diagnostico/:id", checkAuth, editarDiagnostico);
 
 router.get(
-  "/registros-contables-profesor/:id",
-  checkAuth,
-  obtenerCobrosProfesor
+	"/registros-contables-profesor/:id",
+	checkAuth,
+	obtenerCobrosProfesor
 );
 
 router.get(
-  "/registros-contables-profesor-admin/:id",
-  checkAuth,
-  obtenerCobrosProfesorAdmin
+	"/registros-contables-profesor-admin/:id",
+	checkAuth,
+	obtenerCobrosProfesorAdmin
 );
 
 router.post("/enviar-mensaje/:id", checkAuth, enviarMensajeAlCliente);
@@ -85,12 +86,14 @@ router.post("/hacer-cierre/:id", checkAuth, hacerCierre);
 router.put("/editar-pago/:id", checkAuth, editarPago);
 
 router.post(
-  "/obtener-movimientos-cliente/:id",
-  checkAuth,
-  obtenerMovimientosCliente
+	"/obtener-movimientos-cliente/:id",
+	checkAuth,
+	obtenerMovimientosCliente
 );
 
 router.post("/otorgar-creditos/:id", checkAuth, otorgarCreditos);
 router.post("/quitar-creditos/:id", checkAuth, quitarCredito);
+
+router.delete("/eliminar-pago/:id", checkAuth, eliminarPago);
 
 export default router;

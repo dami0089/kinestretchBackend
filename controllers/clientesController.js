@@ -317,7 +317,7 @@ const enviarMensajeAlCliente = async (req, res) => {
 
 const registrarPago = async (req, res) => {
 	const { id } = req.params;
-	const { importe, usuario } = req.body;
+	const { importe, usuario, medio, fechaPago } = req.body;
 	const cliente = await Cliente.findById(id);
 
 	try {
@@ -326,9 +326,10 @@ const registrarPago = async (req, res) => {
 		pago.cliente = id;
 		pago.creador = usuario;
 		pago.importe = importe;
-		(pago.nombreCliente = cliente.nombre + " " + cliente.apellido),
-			(cliente.importeUltimoPago = importe);
-		cliente.fechaUltimoPago = Date.now();
+		pago.medio = medio;
+		pago.nombreCliente = cliente.nombre + " " + cliente.apellido;
+		cliente.importeUltimoPago = importe;
+		cliente.fechaUltimoPago = fechaPago;
 
 		await cliente.save();
 		await pago.save();
@@ -471,8 +472,9 @@ const editarPago = async (req, res) => {
 		return res.status(404).json({ msg: error.message });
 	}
 
-	pago.fecha = req.body.fecha || pago.fecha;
+	pago.fechaPago = req.body.fechaPago || pago.fechaPago;
 	pago.importe = req.body.importe || pago.importe;
+	pago.medio = req.body.medio || pago.medio;
 
 	try {
 		const pagoEditado = await pago.save();
@@ -635,6 +637,20 @@ const editarDiagnostico = async (req, res) => {
 	}
 };
 
+const eliminarPago = async (req, res) => {
+	const { id } = req.params;
+	try {
+		const pago = await Contable.findByIdAndDelete(id);
+		if (!pago) {
+			const error = new Error("No encontrado");
+			return res.status(404).json({ msg: error.message });
+		}
+		res.status(200).json({ msg: "Pago eliminado correctamente" });
+	} catch (error) {
+		res.status(404).json({ msg: error.message });
+	}
+};
+
 export {
 	obtenerClientesActivos,
 	nuevoCliente,
@@ -664,4 +680,5 @@ export {
 	nuevoCertificado,
 	editarDiagnostico,
 	quitarCredito,
+	eliminarPago,
 };
