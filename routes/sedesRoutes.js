@@ -10,6 +10,7 @@ import {
 	editarSede,
 	nuevaSecretaria,
 	obtenerSecretarias,
+	enviarMensajeClientesActivosSede,
 } from "../controllers/sedesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -26,5 +27,7 @@ router.get("/obtener/:id", checkAuth, obtenerSede);
 router.get("/obtener-secretarias", checkAuth, obtenerSecretarias);
 
 router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
+
+router.post("/enviar-mensaje/:id", checkAuth, enviarMensajeClientesActivosSede);
 
 export default router;

@@ -164,9 +164,12 @@ const desactivarProfe = async (req, res) => {
 		// Guardar el cambio de estado del profesor
 		const profesorAlmacenado = await profe.save();
 
-		// Si el profesor se desactiva, eliminar todas las clases donde esté asignado
+		// Si el profesor se desactiva, actualizar las clases donde esté asignado
 		if (!profe.isActivo) {
-			await Clases.deleteMany({ profesor: id });
+			const clasesActualizadas = await Clases.updateMany(
+				{ profesor: id },
+				{ $unset: { profesor: "" }, $set: { nombreProfe: "DEFINIR PROFESOR" } }
+			);
 		}
 
 		// Actualizar isActivo en cada objeto de usuario
