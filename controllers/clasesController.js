@@ -612,26 +612,100 @@ const obtenerClasesProfesoresPerfilAdmin = async (req, res) => {
 };
 
 const obtenerClasesOrdenadas = async (req, res) => {
-	try {
-		const { id } = req.params; // ID de la sede
-		const { dia } = req.body; // Día proporcionado en el cuerpo de la solicitud
+	const { id } = req.params;
+	const { dia } = req.body;
 
-		// Obtener todas las clases que coinciden con la sede y el día
+	console.log(id);
+	console.log(dia);
+
+	try {
+		// Calcular la fecha exacta del próximo día solicitado
+		const diasDeLaSemana = [
+			"Domingo",
+			"Lunes",
+			"Martes",
+			"Miercoles",
+			"Jueves",
+			"Viernes",
+			"Sabado",
+		];
+		const hoy = moment();
+		const indiceHoy = hoy.day();
+		const indiceDiaSolicitado = diasDeLaSemana.indexOf(dia);
+
+		if (indiceDiaSolicitado === -1) {
+			return res.status(400).json({ error: "Día de la semana no válido" });
+		}
+
+		const diasHastaElDiaSolicitado = (indiceDiaSolicitado + 7 - indiceHoy) % 7;
+		const fechaDelDiaSolicitado = hoy
+			.add(diasHastaElDiaSolicitado, "days")
+			.startOf("day");
+
+		// Buscar clases para el día especificado
 		const clases = await Clases.find({
 			sede: id,
-			diaDeLaSemana: dia,
 			isFeriado: false,
-		}).sort({ horarioInicio: 1 });
+			diaDeLaSemana: dia,
+		}).populate("clientes recupero");
 
-		// Filtrar las clases para asegurarse de que el número de clientes y recupero no exceda el cupo
-		const clasesDisponibles = clases.filter((clase) => {
-			const totalAsistentes = clase.clientes.length + clase.recupero.length;
-			return totalAsistentes < clase.cupo;
+		// Obtener inasistencias para la fecha del día solicitado
+		const inasistencias = await Inasistencias.find({
+			fechaInasistencia: {
+				$gte: fechaDelDiaSolicitado.toDate(),
+				$lt: fechaDelDiaSolicitado.add(1, "days").toDate(),
+			},
 		});
+
+		// Crear un mapa de inasistencias por cliente y clase
+		const inasistenciasPorClienteYClase = new Map();
+		inasistencias.forEach((inasistencia) => {
+			const clave = `${inasistencia.cliente.toString()}_${inasistencia.clase.toString()}`;
+			inasistenciasPorClienteYClase.set(clave, true);
+		});
+
+		// Calcular la disponibilidad para cada clase
+		const clasesConDisponibilidad = clases.map((clase) => {
+			const totalClientes = clase.clientes.length + clase.recupero.length;
+			let clientesConInasistencia = 0;
+
+			clase.clientes.forEach((cliente) => {
+				const clave = `${cliente._id.toString()}_${clase._id.toString()}`;
+				if (inasistenciasPorClienteYClase.has(clave)) {
+					clientesConInasistencia += 1;
+				}
+			});
+
+			clase.recupero.forEach((cliente) => {
+				const clave = `${cliente._id.toString()}_${clase._id.toString()}`;
+				if (inasistenciasPorClienteYClase.has(clave)) {
+					clientesConInasistencia += 1;
+				}
+			});
+
+			const disponibilidad = Math.max(
+				0,
+				clase.cupo - (totalClientes - clientesConInasistencia)
+			);
+
+			return {
+				...clase.toObject(),
+				disponibilidad,
+			};
+		});
+
+		// Filtrar las clases para asegurarse de que hay disponibilidad
+		const clasesDisponibles = clasesConDisponibilidad.filter(
+			(clase) => clase.disponibilidad > 0
+		);
+
+		// Ordenar las clases por hora de inicio
+		clasesDisponibles.sort((a, b) => a.horarioInicio - b.horarioInicio);
 
 		res.json(clasesDisponibles);
 	} catch (error) {
-		res.status(500).send("Error al obtener las clases");
+		console.error(error);
+		res.status(500).json({ error: "Error al obtener las clases" });
 	}
 };
 
