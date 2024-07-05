@@ -6,6 +6,10 @@ import Sedes from "../models/Sedes.js";
 import Secretaria from "../models/Secretaria.js";
 import generarId from "../helpers/generarId.js";
 import { emailRegistro, mensajeGrupaloIndividual } from "../helpers/emails.js";
+import Contable from "../models/Contable.js";
+import Caja from "../models/Caja.js";
+import Asistencias from "../models/AsistenciasClases.js";
+import Inasistencias from "../models/Inasistencias.js";
 
 const obtenerSedesActivas = async (req, res) => {
 	try {
@@ -188,6 +192,168 @@ const enviarMensajeClientesActivosSede = async (req, res) => {
 	}
 };
 
+const obtenerPagosSede = async (req, res) => {
+	const { id } = req.params;
+
+	const pagos = await Contable.find({ sede: id });
+
+	if (!pagos) {
+		const error = new Error("No se encontraron pagos para esta sede");
+		return res.status(404).json({ msg: error.message });
+	}
+
+	res.json(pagos);
+};
+
+const obtenerCajasSede = async (req, res) => {
+	const { id } = req.params;
+	try {
+		const cajas = await Caja.find({ sede: id })
+			.populate({
+				path: "pagos",
+				populate: {
+					path: "cliente",
+					model: "Cliente",
+				},
+			})
+			.populate("profesor");
+
+		// Calcular el total de cada caja
+		const cajasConTotal = cajas.map((caja) => {
+			const totalCaja = caja.pagos.reduce((total, pago) => {
+				if (pago.nombreCliente) {
+					return total + parseFloat(pago.importe); // Pago positivo
+				} else if (pago.nombreProfe) {
+					return total - parseFloat(pago.importe); // Retiro de profesor
+				}
+				return total;
+			}, 0);
+
+			return {
+				...caja.toObject(),
+				totalCaja,
+			};
+		});
+
+		console.log(cajasConTotal);
+
+		res.json(cajasConTotal);
+	} catch (error) {
+		console.error("Error al obtener los cobros del profesor:", error);
+		res.status(500).send("Error al obtener los datos");
+	}
+};
+
+const cerrarCaja = async (req, res) => {
+	const { id } = req.params;
+
+	const caja = await Caja.findById(id);
+
+	console.log("Caja encontrada");
+	console.log(caja);
+
+	if (!caja) {
+		const error = new Error("No se encontraron Cajas para esta sede");
+		return res.status(404).json({ msg: error.message });
+	} else {
+		caja.estado = "Cerrada";
+		console.log(caja);
+		await caja.save();
+	}
+
+	res.json(caja);
+};
+
+const obtenerAsistenciasFecha = async (req, res) => {
+	const { id } = req.params; // id de la sede
+	const { fecha } = req.body;
+
+	console.log("body", req.body);
+	console.log("Params", req.params);
+
+	try {
+		// Buscar asistencias y popular clase y clientes
+		const asistencias = await Asistencias.find({
+			fechaClase: {
+				$gte: new Date(fecha).setHours(0, 0, 0, 0),
+				$lt: new Date(fecha).setHours(23, 59, 59, 999),
+			},
+		})
+			.populate({
+				path: "clase",
+				populate: {
+					path: "sede", // Popula la información de la sede dentro de clase
+				},
+			})
+			.populate("clientes");
+
+		// Filtrar asistencias por la sede proporcionada
+		const asistenciasFiltradas = asistencias.filter(
+			(asistencia) => asistencia.clase.sede._id.toString() === id
+		);
+
+		res.json(asistenciasFiltradas);
+	} catch (error) {
+		console.error("Error al obtener las asistencias:", error);
+		res.status(500).send("Error al obtener los datos");
+	}
+};
+
+const obtenerInasistencias = async (req, res) => {
+	const { id } = req.params; // id de la sede
+	const { fecha } = req.body;
+
+	console.log("Fecha recibida:", fecha);
+
+	try {
+		// Convertir la fecha recibida a formato YYYYDDMM
+		const fechaPartes = fecha.split("-");
+		const fechaConvertida = `${fechaPartes[0]}-${fechaPartes[2]}-${fechaPartes[1]}`;
+
+		// Crear la fecha de inicio y fin basadas en la fecha convertida
+		const fechaInicio = new Date(`${fechaConvertida}T00:00:00.000Z`);
+		const fechaFin = new Date(`${fechaConvertida}T23:59:59.999Z`);
+
+		console.log("Fecha Inicio ajustada:", fechaInicio);
+		console.log("Fecha Fin ajustada:", fechaFin);
+
+		// Imprimir todas las inasistencias para ver qué fechas tenemos
+		const inasistenciasTodas = await Inasistencias.find()
+			.populate("clase")
+			.populate("cliente");
+		console.log("Todas las inasistencias:", inasistenciasTodas);
+
+		// Buscar inasistencias dentro del rango de fechas
+		const inasist = await Inasistencias.find({
+			fechaInasistencia: {
+				$gte: fechaInicio,
+				$lte: fechaFin, // Usar $lte en lugar de $lt para incluir el fin del día
+			},
+		})
+			.populate({
+				path: "clase",
+				populate: {
+					path: "sede", // Popula la información de la sede dentro de clase
+				},
+			})
+			.populate("cliente");
+
+		console.log("Inasistencias encontradas sin filtrar:", inasist);
+
+		// Filtrar asistencias por la sede proporcionada
+		const inasistenciasFiltradas = inasist.filter(
+			(inasistencia) => inasistencia.clase.sede._id.toString() === id
+		);
+
+		console.log("Inasistencias encontradas:", inasistenciasFiltradas);
+
+		res.json(inasistenciasFiltradas);
+	} catch (error) {
+		console.error("Error al obtener las asistencias:", error);
+		res.status(500).send("Error al obtener los datos");
+	}
+};
+
 export {
 	obtenerSedesActivas,
 	nuevaSede,
@@ -197,4 +363,9 @@ export {
 	nuevaSecretaria,
 	obtenerSecretarias,
 	enviarMensajeClientesActivosSede,
+	obtenerPagosSede,
+	obtenerCajasSede,
+	cerrarCaja,
+	obtenerAsistenciasFecha,
+	obtenerInasistencias,
 };

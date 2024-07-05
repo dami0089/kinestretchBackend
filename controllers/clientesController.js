@@ -15,6 +15,8 @@ import Contable from "../models/Contable.js";
 import cron from "node-cron";
 import Certificados from "../models/Certificados.js";
 import moment from "moment";
+import Caja from "../models/Caja.js";
+import Profesor from "../models/Profesor.js";
 
 const obtenerClientesActivos = async (req, res) => {
 	try {
@@ -184,28 +186,33 @@ const editarCliente = async (req, res) => {
 
 	const cliente = await Cliente.findById(id);
 
+	const usuario = await Usuario.findOne({ cliente: cliente._id });
+
 	if (!cliente) {
 		const error = new Error("No encontrado");
 		return res.status(404).json({ msg: error.message });
 	}
 
-	cliente.nombre = req.body.nombre || cliente.nombre;
-	cliente.apellido = req.body.apellido || cliente.apellido;
-	cliente.dni = req.body.dni || cliente.dni;
-	cliente.email = req.body.email || cliente.email;
-	cliente.celular = req.body.celular || cliente.celular;
-	cliente.fechaNacimiento = req.body.fechaNacimiento || cliente.fechaNacimiento;
-	cliente.diagnostico = req.body.diagnostico || cliente.diagnostico;
-	cliente.aptoFisico = req.body.aptoFisico || cliente.aptoFisico;
-	cliente.fechaApto = req.body.fechaApto || cliente.fechaApto;
-	cliente.linkApto = req.body.linkApto || cliente.linkApto;
-	cliente.nombreContactoEmergencia =
-		req.body.nombreContactoEmergencia || cliente.nombreContactoEmergencia;
-	cliente.celularContactoEmergencia =
-		req.body.celularContactoEmergencia || cliente.celularContactoEmergencia;
-
+	cliente.nombre = req.body.nombre;
+	usuario.nombre = req.body.nombre;
+	cliente.apellido = req.body.apellido;
+	usuario.apellido = req.body.apellido;
+	cliente.dni = req.body.dni;
+	usuario.dni = req.body.dni;
+	cliente.email = req.body.email;
+	usuario.email = req.body.email;
+	cliente.celular = req.body.celular;
+	usuario.celu = req.body.celular;
+	cliente.fechaNacimiento = req.body.fechaNacimiento;
+	cliente.diagnostico = req.body.diagnostico;
+	cliente.aptoFisico = req.body.aptoFisico;
+	cliente.fechaApto = req.body.fechaApto;
+	cliente.linkApto = req.body.linkApto;
+	cliente.nombreContactoEmergencia = req.body.nombreContactoEmergencia;
+	cliente.celularContactoEmergencia = req.body.celularContactoEmergencia;
 	try {
 		const clienteEditado = await cliente.save();
+		await usuario.save();
 		res.json(clienteEditado);
 	} catch (error) {
 		console.log(error);
@@ -317,8 +324,12 @@ const enviarMensajeAlCliente = async (req, res) => {
 
 const registrarPago = async (req, res) => {
 	const { id } = req.params;
-	const { importe, usuario, medio, fechaPago } = req.body;
+	const { importe, usuario, medio, fechaPago, comentario } = req.body;
 	const cliente = await Cliente.findById(id);
+	const user = await Usuario.findById(usuario);
+	const profesor = await Profesor.findById(user.profesor);
+	console.log("Profesor registrar pago");
+	console.log(profesor);
 
 	try {
 		const pago = new Contable();
@@ -327,9 +338,31 @@ const registrarPago = async (req, res) => {
 		pago.creador = usuario;
 		pago.importe = importe;
 		pago.medio = medio;
+		pago.sede = cliente.sede;
+		pago.comentario = comentario;
 		pago.nombreCliente = cliente.nombre + " " + cliente.apellido;
 		cliente.importeUltimoPago = importe;
 		cliente.fechaUltimoPago = fechaPago;
+		if (profesor && pago.medio === "Efectivo") {
+			const caja = await Caja.findOne({
+				profesor: profesor._id,
+				sede: cliente.sede,
+				estado: "Abierta",
+			});
+			console.log(caja);
+
+			if (caja) {
+				caja.pagos.push(pago._id);
+				await caja.save();
+			} else {
+				const nuevaCaja = new Caja();
+				nuevaCaja.profesor = profesor._id;
+				nuevaCaja.sede = cliente.sede;
+				nuevaCaja.pagos.push(pago._id);
+				console.log(caja);
+				await nuevaCaja.save();
+			}
+		}
 
 		await cliente.save();
 		await pago.save();
@@ -367,6 +400,17 @@ const registrarRetiro = async (req, res) => {
 	const { importe, usuario } = req.body;
 
 	const profe = await Usuario.findById(usuario);
+	const caja = await Caja.findOne({
+		profesor: profe.profesor,
+		estado: "Abierta",
+	});
+	console.log(caja);
+
+	if (!caja) {
+		res.status(500).json({
+			msg: "Para retirar dinero primero tiene que haber pagos registrados",
+		});
+	}
 
 	try {
 		const pago = new Contable();
@@ -374,7 +418,9 @@ const registrarRetiro = async (req, res) => {
 		pago.importe = importe;
 		pago.nombreProfe = profe.nombre + " " + profe.apellido;
 
-		await pago.save();
+		const pagoAlmacenado = await pago.save();
+		caja.pagos.push(pagoAlmacenado._id);
+		await caja.save();
 		res.json({ msg: "OK" });
 	} catch (error) {
 		res.status(404).json({ msg: error.message });
@@ -430,14 +476,19 @@ const hacerCierre = async (req, res) => {
 const obtenerCobrosProfesor = async (req, res) => {
 	try {
 		const { id } = req.params;
+		const user = await Usuario.findById(id);
+		const profe = await Profesor.findById(user.profesor);
+		console.log(user);
+		console.log(profe);
 
-		// Asegúrate de que el modelo Contable está correctamente importado
-		const movimientos = await Contable.find({
-			creador: id,
-			cerradoProfe: false,
-		}).sort({ fecha: -1 });
-		// Aquí puedes decidir cómo responder. Por ejemplo:
-		res.json(movimientos);
+		const caja = await Caja.findOne({
+			profesor: profe._id,
+			estado: "Abierta",
+		}).populate("pagos");
+
+		console.log(caja);
+
+		res.json(caja);
 	} catch (error) {
 		console.error("Error al obtener los cobros del profesor:", error);
 		res.status(500).send("Error al obtener los datos");
@@ -475,6 +526,7 @@ const editarPago = async (req, res) => {
 	pago.fechaPago = req.body.fechaPago || pago.fechaPago;
 	pago.importe = req.body.importe || pago.importe;
 	pago.medio = req.body.medio || pago.medio;
+	pago.comentario = req.body.comentario;
 
 	try {
 		const pagoEditado = await pago.save();
@@ -651,6 +703,38 @@ const eliminarPago = async (req, res) => {
 	}
 };
 
+const eliminarCliente = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		const cliente = await Cliente.findById(id);
+
+		if (!cliente) {
+			return res.status(404).json({ msg: "Cliente no encontrado" });
+		}
+
+		if (!cliente.isActivo) {
+			// Eliminar al cliente de todas las clases
+			await Clases.updateMany(
+				{ $or: [{ clientes: id }, { recupero: id }] },
+				{ $pull: { clientes: id, recupero: id } }
+			);
+
+			// Eliminar el cliente
+			await Cliente.findByIdAndDelete(id);
+
+			res.json({ msg: "Cliente eliminado correctamente" });
+		} else {
+			res
+				.status(400)
+				.json({ msg: "El cliente está activo y no puede ser eliminado" });
+		}
+	} catch (error) {
+		console.error("Error al eliminar el cliente:", error);
+		res.status(500).json({ msg: "Error al eliminar el cliente" });
+	}
+};
+
 export {
 	obtenerClientesActivos,
 	nuevoCliente,
@@ -681,4 +765,5 @@ export {
 	editarDiagnostico,
 	quitarCredito,
 	eliminarPago,
+	eliminarCliente,
 };

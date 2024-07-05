@@ -22,7 +22,15 @@ const contableSchema = mongoose.Schema(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Cliente",
 		},
+		sede: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Sede",
+		},
 		nombreCliente: {
+			type: String,
+			trim: true,
+		},
+		comentario: {
 			type: String,
 			trim: true,
 		},

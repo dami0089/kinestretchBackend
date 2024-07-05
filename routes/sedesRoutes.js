@@ -11,6 +11,11 @@ import {
 	nuevaSecretaria,
 	obtenerSecretarias,
 	enviarMensajeClientesActivosSede,
+	obtenerPagosSede,
+	obtenerCajasSede,
+	cerrarCaja,
+	obtenerAsistenciasFecha,
+	obtenerInasistencias,
 } from "../controllers/sedesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -29,5 +34,12 @@ router.get("/obtener-secretarias", checkAuth, obtenerSecretarias);
 router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
 
 router.post("/enviar-mensaje/:id", checkAuth, enviarMensajeClientesActivosSede);
+
+router.get("/obtener-pagos/:id", checkAuth, obtenerPagosSede);
+
+router.get("/obtener-cajas/:id", checkAuth, obtenerCajasSede);
+router.post("/cerrar-caja/:id", checkAuth, cerrarCaja);
+router.post("/obtener-asistencias/:id", checkAuth, obtenerAsistenciasFecha);
+router.post("/obtener-inasistencias/:id", checkAuth, obtenerInasistencias);
 
 export default router;

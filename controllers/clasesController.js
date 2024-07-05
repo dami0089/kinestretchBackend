@@ -21,6 +21,8 @@ import {
 	notificacionEncuesta,
 } from "../helpers/emails.js";
 import { enviarMensaje } from "../whatsappbot.js";
+import Contable from "../models/Contable.js";
+import Feriados from "../models/Feriados.js";
 
 const obtenerSedesActivas = async (req, res) => {
 	try {
@@ -342,6 +344,7 @@ const asignarClienteaClase = async (req, res) => {
 const recuperoClase = async (req, res) => {
 	const { id } = req.params;
 	const { idClase } = req.body;
+	console.log(idClase);
 
 	try {
 		const clase = await Clases.findById(idClase);
@@ -364,9 +367,9 @@ const recuperoClase = async (req, res) => {
 
 		// Comprobar si el cliente ya está asignado a esa clase
 		if (clase.clientes.includes(id)) {
-			return res
-				.status(400)
-				.json({ msg: "El cliente ya está asignado a esta clase." });
+			return res.status(400).json({
+				msg: "No podes recuperar la clase en la que estas inscripto.",
+			});
 		}
 
 		// Agregar el cliente a la lista de clientes de la clase
@@ -376,6 +379,16 @@ const recuperoClase = async (req, res) => {
 		// Guardar los cambios en la base de datos
 		await clase.save();
 		await cliente.save();
+
+		const mensaje = `Hola ${cliente.nombre}, te informamos que tu recupero para la clase de ${clase.nombreProfe} el día ${clase.diaDeLaSemana} a las ${clase.horarioInicio} hs en la sede ${clase.nombreSede} ha sido confirmado.`;
+
+		console.log("Mensaje:", mensaje);
+		await mensajeGrupaloIndividual(
+			cliente.email,
+			mensaje,
+			"Recupero Confirmado"
+		);
+		console.log("enviado:", mensaje);
 
 		res.json(clase);
 	} catch (error) {
@@ -972,7 +985,6 @@ const asistencia = async (req, res) => {
 		console.log("Cliente: ", idCliente);
 		// Verificar si el cliente está en la lista de recuperos de la clase y eliminarlo si es necesario
 		if (clase.recupero && clase.recupero.includes(idCliente)) {
-			console.log("Cliente en lista de recuperos");
 			clase.recupero = clase.recupero.filter(
 				(clienteId) => clienteId.toString() !== idCliente.toString()
 			);
@@ -1215,14 +1227,15 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 		const { idClase } = req.body; // ID de la clase
 
 		const cliente = await Cliente.findById(id);
-
 		const clase = await Clases.findById(idClase);
+
+		const fechaInasistencia = moment()
+			.tz("America/Argentina/Buenos_Aires")
+			.toDate();
 
 		if (cliente.esPrimeraClase) {
 			await Clases.updateOne({ _id: idClase }, { $pull: { clientes: id } });
-			const fechaInasistencia = moment()
-				.tz("America/Argentina/Buenos_Aires")
-				.toDate();
+
 			const nuevaInasistencia = new Inasistencias({
 				cliente: id,
 				clase: idClase,
@@ -1232,9 +1245,24 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 			await nuevaInasistencia.save();
 		} else {
 			console.log("Entrando al else");
-			const fechaInasistencia = moment()
-				.tz("America/Argentina/Buenos_Aires")
-				.toDate();
+
+			// Verificar si es la primera clase del mes
+			const inicioMes = moment().startOf("month").toDate();
+			const asistenciasDelMes = await Asistencias.find({
+				clientes: id,
+				fechaClase: { $gte: inicioMes },
+			});
+
+			if (asistenciasDelMes.length === 0) {
+				const mensaje = `Hola ${cliente.nombre},\n\nTe escribimos ya que hoy registramos una inasistencia en tu primer clase del mes.\nPor favor, necesitamos saber si seguiras viniendo para seguir manteniendo tu cupo. \n\nEsperamos tu respuesta a la breveded \nSaludos\nEquipo Kinestretch`;
+				const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
+
+				await mensajeGrupaloIndividual(
+					cliente.email,
+					mensajeConSaltos,
+					"Registramos una inasistencia!"
+				);
+			}
 
 			const nuevaInasistencia = new Inasistencias({
 				cliente: id,
@@ -1358,15 +1386,11 @@ const obtenerAlumnosDeClase = async (req, res) => {
 			},
 		}).populate("cliente", "nombre apellido dni email celular fechaNacimiento");
 
-		console.log("Inasistencias encontradas:", inasistencias);
-
 		// Crear un conjunto de inasistencias por cliente
 		const inasistenciasPorCliente = new Set();
 		inasistencias.forEach((inasistencia) => {
 			inasistenciasPorCliente.add(inasistencia.cliente._id.toString());
 		});
-
-		console.log("Clientes con inasistencias:", [...inasistenciasPorCliente]);
 
 		// Filtrar los clientes y recupero excluyendo los que tienen inasistencias
 		const alumnos = [
@@ -1376,7 +1400,6 @@ const obtenerAlumnosDeClase = async (req, res) => {
 				)
 				.map((cliente) => ({
 					...cliente.toObject(),
-					// esRecupero: false,
 				})),
 			...clase.recupero
 				.filter(
@@ -1384,12 +1407,23 @@ const obtenerAlumnosDeClase = async (req, res) => {
 				)
 				.map((cliente) => ({
 					...cliente.toObject(),
-					// esRecupero: true,
 				})),
 		];
 
-		console.log("Alumnos después de filtrar:", alumnos);
-		res.json(alumnos);
+		// Obtener el último pago de cada alumno
+		const pagosPromises = alumnos.map(async (alumno) => {
+			const ultimoPago = await Contable.findOne({ cliente: alumno._id }).sort({
+				fechaPago: -1,
+			});
+			return {
+				...alumno,
+				pagos: ultimoPago || null,
+			};
+		});
+
+		const alumnosConPagos = await Promise.all(pagosPromises);
+
+		res.json(alumnosConPagos);
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Error al obtener los alumnos de la clase");
@@ -1944,6 +1978,245 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 	}
 };
 
+const registrarFeriado = async (req, res) => {
+	const { fecha, motivo } = req.body;
+
+	const nuevoFeriado = new Feriados();
+	nuevoFeriado.fechaFeriado = fecha;
+	nuevoFeriado.motivo = motivo;
+
+	try {
+		await nuevoFeriado.save();
+		res.json({ msg: "Feriado registrado correctamente" });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ msg: "Error al registrar el feriado" });
+	}
+};
+
+const obtenerFeriados = async (req, res) => {
+	const feriados = await Feriados.find();
+	res.json(feriados);
+};
+
+const comunicarFeriado = async (req, res) => {
+	const { fecha, motivo } = req.body;
+
+	try {
+		// Obtener todos los usuarios de la base de datos
+		const usuarios = await Usuario.find();
+
+		// Obtener los correos electrónicos de todos los usuarios
+		const correos = usuarios.map((usuario) => usuario.email);
+
+		const mensaje = `
+Estimado Cliente,<br><br>
+Le informamos que el próximo ${fecha} nuestro espacio permanecerá cerrado por motivo de ${motivo}.<br><br>
+Nos reencontramos la próxima clase!<br><br>
+Saludos,<br>
+Equipo Kinestretch
+`;
+
+		// Convertir saltos de línea a <br> para el HTML
+		const mensajeHtml = mensaje.replace(/\n/g, "<br>");
+
+		for (const correo of correos) {
+			await mensajeGrupaloIndividual(correo, mensajeHtml, "Próximo Feriado");
+		}
+
+		res.json({ msg: "Correo enviado correctamente" });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ msg: "Error al enviar el correo" });
+	}
+};
+
+const eliminarFeriado = async (req, res) => {
+	const { id } = req.params;
+	try {
+		await Feriados.findByIdAndDelete(id);
+		res.json({ msg: "Feriado eliminado correctamente" });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ msg: "Error al eliminar el feriado" });
+	}
+};
+
+const obtenerClasesSedesPorDiaSoloDisp = async (req, res) => {
+	const { id } = req.params;
+	const { dia } = req.body;
+
+	try {
+		// Calcular la fecha exacta del próximo día solicitado
+		const diasDeLaSemana = [
+			"Domingo",
+			"Lunes",
+			"Martes",
+			"Miercoles",
+			"Jueves",
+			"Viernes",
+			"Sabado",
+		];
+		const hoy = moment();
+		const indiceHoy = hoy.day();
+		const indiceDiaSolicitado = diasDeLaSemana.indexOf(dia);
+
+		if (indiceDiaSolicitado === -1) {
+			return res.status(400).json({ error: "Día de la semana no válido" });
+		}
+
+		const diasHastaElDiaSolicitado = (indiceDiaSolicitado + 7 - indiceHoy) % 7;
+		const fechaDelDiaSolicitado = hoy
+			.add(diasHastaElDiaSolicitado, "days")
+			.startOf("day");
+
+		// Buscar clases para el día especificado
+		const clases = await Clases.find({
+			sede: id,
+			diaDeLaSemana: dia,
+		}).populate("clientes recupero");
+
+		// Obtener inasistencias para la fecha del día solicitado
+		const inasistencias = await Inasistencias.find({
+			fechaInasistencia: {
+				$gte: fechaDelDiaSolicitado.toDate(),
+				$lt: fechaDelDiaSolicitado.add(1, "days").toDate(),
+			},
+		});
+
+		// Crear un mapa de inasistencias por cliente y clase
+		const inasistenciasPorClienteYClase = new Map();
+		inasistencias.forEach((inasistencia) => {
+			const clave = `${inasistencia.cliente.toString()}_${inasistencia.clase.toString()}`;
+			inasistenciasPorClienteYClase.set(clave, true);
+		});
+
+		// Calcular la disponibilidad para cada clase
+		const clasesConDisponibilidad = clases.map((clase) => {
+			const totalClientes = clase.clientes.length + clase.recupero.length;
+			let clientesConInasistencia = 0;
+
+			clase.clientes.forEach((cliente) => {
+				const clave = `${cliente._id.toString()}_${clase._id.toString()}`;
+				if (inasistenciasPorClienteYClase.has(clave)) {
+					clientesConInasistencia += 1;
+				}
+			});
+
+			clase.recupero.forEach((cliente) => {
+				const clave = `${cliente._id.toString()}_${clase._id.toString()}`;
+				if (inasistenciasPorClienteYClase.has(clave)) {
+					clientesConInasistencia += 1;
+				}
+			});
+
+			const disponibilidad = Math.max(
+				0,
+				clase.cupo - (totalClientes - clientesConInasistencia)
+			);
+			return {
+				...clase.toObject(),
+				disponibilidad,
+			};
+		});
+
+		// Ordenar las clases por hora de inicio
+		clasesConDisponibilidad.sort((a, b) => a.horarioInicio - b.horarioInicio);
+		console.log(clasesConDisponibilidad);
+		res.json(clasesConDisponibilidad);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: "Error al obtener las clases" });
+	}
+};
+
+const cancelarClaseClienteNuevoLadoAdmin = async (req, res) => {
+	const { id } = req.params;
+	const { claseId, fecha } = req.body; // Ahora recibimos la fecha a cancelar
+
+	const clase = await Clases.findById(claseId);
+	const cliente = await Cliente.findById(id);
+	const usuario = await Usuario.findOne({ cliente: id });
+
+	console.log("Clase");
+	console.log(clase);
+	console.log("Cliente");
+	console.log(cliente);
+	console.log("Usuario");
+	console.log(usuario);
+
+	if (!clase) {
+		return res.status(404).json({ error: "Clase no encontrada." });
+	}
+
+	console.log("Usuario encontrado:", usuario);
+	console.log("Clase encontrada:", clase);
+	console.log("Cliente encontrado:", cliente);
+
+	const fechaClase = moment(fecha, "YYYY-MM-DD").tz(
+		"America/Argentina/Buenos_Aires"
+	);
+	console.log("Fecha de la clase a cancelar:", fechaClase);
+
+	// Verificar la hora actual en Argentina
+	const ahora = moment().tz("America/Argentina/Buenos_Aires");
+	const horaActual = ahora.hour();
+	const minutoActual = ahora.minute();
+
+	// Verificar si el cliente está tratando de cancelar dentro de una hora antes o después de la hora de inicio
+	const horaInicioClase = clase.horarioInicio;
+	console.log("Hora de inicio de la clase:", horaInicioClase);
+
+	// Verificar si el cliente ya ha cancelado una clase en el mes de la fecha seleccionada
+	const inicioMes = fechaClase.clone().startOf("month").toDate();
+	const finMes = fechaClase.clone().endOf("month").toDate();
+
+	const inasistenciaExistente = await Inasistencias.find({
+		cliente: usuario.cliente,
+		fechaInasistencia: { $gte: inicioMes, $lte: finMes },
+	});
+
+	if (inasistenciaExistente.length > 0) {
+		const inasistencia = new Inasistencias({
+			cliente: usuario.cliente,
+			clase: claseId,
+			fechaInasistencia: fechaClase.toDate(),
+		});
+
+		await inasistencia.save();
+		const error = new Error(
+			"Ya has cancelado una clase este mes y no se podrá recuperar."
+		);
+		return res.json({ msg1: error.message });
+	}
+
+	// Registrar la inasistencia con la fecha proporcionada
+	const inasistencia = new Inasistencias({
+		cliente: usuario.cliente,
+		clase: claseId,
+		fechaInasistencia: fechaClase.toDate(),
+	});
+
+	cliente.creditos = 1;
+
+	const infoEmail = {
+		email: usuario.email,
+		nombre: usuario.nombre,
+	};
+
+	try {
+		await cliente.save();
+		const inasistenciaAlmacenada = await inasistencia.save();
+
+		await emailClaseCancelada(infoEmail);
+
+		res.json({ msg2: "Gracias por avisarnos!" });
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ error: "Error al cancelar la clase." });
+	}
+};
+
 export {
 	obtenerSedesActivas,
 	nuevaClase,
@@ -1989,4 +2262,9 @@ export {
 	eliminarClienteRecupero,
 	obtenerAlumnosAsistentesDeClase,
 	obtenerRegistrosAsistenciaCliente,
+	registrarFeriado,
+	obtenerFeriados,
+	comunicarFeriado,
+	eliminarFeriado,
+	cancelarClaseClienteNuevoLadoAdmin,
 };

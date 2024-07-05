@@ -46,6 +46,11 @@ import {
 	eliminarClienteRecupero,
 	obtenerAlumnosAsistentesDeClase,
 	obtenerRegistrosAsistenciaCliente,
+	registrarFeriado,
+	obtenerFeriados,
+	comunicarFeriado,
+	eliminarFeriado,
+	cancelarClaseClienteNuevoLadoAdmin,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -158,6 +163,12 @@ router.post(
 );
 
 router.post(
+	"/cancelar-clase-cliente-nuevo-lado-admin/:id",
+	checkAuth,
+	cancelarClaseClienteNuevoLadoAdmin
+);
+
+router.post(
 	"/obtener-clases-ordenadas-inicio/",
 	checkAuth,
 	obtenerClasesOrdenadasParaProximasClasesPaginaInicio
@@ -186,5 +197,10 @@ router.get(
 	checkAuth,
 	obtenerRegistrosAsistenciaCliente
 );
+
+router.post("/registrar-feriado", checkAuth, registrarFeriado);
+router.get("/obtener-feriados", checkAuth, obtenerFeriados);
+router.post("/comunicar-feriado", checkAuth, comunicarFeriado);
+router.post("/eliminar-feriado/:id", checkAuth, eliminarFeriado);
 
 export default router;
