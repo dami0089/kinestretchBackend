@@ -126,16 +126,16 @@ const nuevaSecretaria = async (req, res) => {
 		usuario.nombre = secretariaAlmacenada.nombre;
 		usuario.apellido = secretariaAlmacenada.apellido;
 		usuario.dni = secretariaAlmacenada.dni;
-		usuario.token = generarId();
 		usuario.email = secretariaAlmacenada.email.toLowerCase();
+		usuario.password = secretariaAlmacenada.dni;
 		usuario.rol = "secretaria";
 		usuario.secretaria = secretariaAlmacenada._id;
-		const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL}/crear-password/${usuario.token} para gestionar los clientes y las reservas`;
+		const mensaje = `Hola ${usuario.nombre}, Te damos la bienvenida a Kinestretch!\nEstamos estrenando sistema de gestion nuevo y acabamos de crearte un usuario en nuestra plataforma. Por favor ingresa a ${process.env.FRONTEND_URL} con tu dni como contraseña para gestionar los clientes y las reservas`;
 		await usuario.save();
 		const infoMail = {
 			email: usuario.email,
 			nombre: usuario.nombre,
-			token: usuario.token,
+			token: "11",
 		};
 
 		await emailRegistro(infoMail);
@@ -279,6 +279,7 @@ const obtenerAsistenciasFecha = async (req, res) => {
 				$lt: new Date(fecha).setHours(23, 59, 59, 999),
 			},
 		})
+			.sort({ _id: -1 })
 			.populate({
 				path: "clase",
 				populate: {
@@ -291,7 +292,7 @@ const obtenerAsistenciasFecha = async (req, res) => {
 		const asistenciasFiltradas = asistencias.filter(
 			(asistencia) => asistencia.clase.sede._id.toString() === id
 		);
-
+		console.log(asistenciasFiltradas);
 		res.json(asistenciasFiltradas);
 	} catch (error) {
 		console.error("Error al obtener las asistencias:", error);
@@ -306,22 +307,17 @@ const obtenerInasistencias = async (req, res) => {
 	console.log("Fecha recibida:", fecha);
 
 	try {
-		// Convertir la fecha recibida a formato YYYYDDMM
+		// Convertir la fecha recibida a formato YYYY-MM-DD
 		const fechaPartes = fecha.split("-");
-		const fechaConvertida = `${fechaPartes[0]}-${fechaPartes[2]}-${fechaPartes[1]}`;
+		const fechaConvertida = `${fechaPartes[0]}-${fechaPartes[1]}-${fechaPartes[2]}`;
 
 		// Crear la fecha de inicio y fin basadas en la fecha convertida
-		const fechaInicio = new Date(`${fechaConvertida}T00:00:00.000Z`);
-		const fechaFin = new Date(`${fechaConvertida}T23:59:59.999Z`);
+		const fechaInicio = new Date(fechaConvertida);
+		const fechaFin = new Date(fechaConvertida);
+		fechaFin.setHours(23, 59, 59, 999);
 
 		console.log("Fecha Inicio ajustada:", fechaInicio);
 		console.log("Fecha Fin ajustada:", fechaFin);
-
-		// Imprimir todas las inasistencias para ver qué fechas tenemos
-		const inasistenciasTodas = await Inasistencias.find()
-			.populate("clase")
-			.populate("cliente");
-		console.log("Todas las inasistencias:", inasistenciasTodas);
 
 		// Buscar inasistencias dentro del rango de fechas
 		const inasist = await Inasistencias.find({
@@ -330,6 +326,7 @@ const obtenerInasistencias = async (req, res) => {
 				$lte: fechaFin, // Usar $lte en lugar de $lt para incluir el fin del día
 			},
 		})
+			.sort({ _id: -1 })
 			.populate({
 				path: "clase",
 				populate: {

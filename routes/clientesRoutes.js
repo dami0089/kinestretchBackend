@@ -77,10 +77,9 @@ router.get(
 
 router.post("/enviar-mensaje/:id", checkAuth, enviarMensajeAlCliente);
 router.post("/registrar-pago/:id", checkAuth, registrarPago);
+router.post("/registrar-retiro", checkAuth, registrarRetiro);
 
 router.post("/registrar-pago-admin/:id", checkAuth, registrarPagoPerfilAdmin);
-
-router.post("/registrar-retiro", checkAuth, registrarRetiro);
 
 router.post("/hacer-cierre/:id", checkAuth, hacerCierre);
 

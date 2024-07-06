@@ -755,7 +755,7 @@ const obtenerClientesClase = async (req, res) => {
 		}
 
 		// Función para mapear la información de los clientes
-		const mapearCliente = (cliente) => ({
+		const mapearCliente = (cliente, esRecupero = false) => ({
 			id: cliente._id,
 			nombre: cliente.nombre,
 			apellido: cliente.apellido,
@@ -766,23 +766,43 @@ const obtenerClientesClase = async (req, res) => {
 			linkApto: cliente.linkApto,
 			nombreContactoEmergencia: cliente.nombreContactoEmergencia,
 			celularContactoEmergencia: cliente.celularContactoEmergencia,
-			esRecupero: cliente.esRecupero,
+			esRecupero: esRecupero,
 			fechaUltimoPago: cliente.fechaUltimoPago,
 			importeUltimoPago: cliente.importeUltimoPago,
 			asistioHoy: cliente.asistioHoy,
 			esPrimeraClase: cliente.esPrimeraClase,
 		});
 
-		// Mapear los clientes y los de recupero
-		const clientes = clase.clientes.map(mapearCliente);
-		const clientesRecupero = clase.recupero.map(mapearCliente);
+		// Mapear los clientes normales
+		const clientes = clase.clientes.map((cliente) => mapearCliente(cliente));
 
-		// Combinar los listados, eliminando duplicados
-		const idsUnicos = [...new Set([...clientes, ...clientesRecupero])];
+		// Mapear los clientes de recupero y marcar como esRecupero: true
+		const clientesRecupero = clase.recupero.map((cliente) =>
+			mapearCliente(cliente, true)
+		);
+
+		// Crear un objeto para evitar duplicados y combinar listas
+		const clienteMap = {};
+
+		// Añadir clientes normales al mapa
+		clientes.forEach((cliente) => {
+			clienteMap[cliente.id] = cliente;
+		});
+
+		// Añadir clientes de recupero al mapa (sobreescribe si ya existe)
+		clientesRecupero.forEach((cliente) => {
+			clienteMap[cliente.id] = cliente;
+		});
+
+		// Convertir el mapa a una lista de clientes
+		const clientesUnicos = Object.values(clienteMap);
 
 		// Devolver la lista de clientes
-		res.json(idsUnicos);
+		console.log("Clientes unicos");
+		console.log(clientesUnicos);
+		res.json(clientesUnicos);
 	} catch (error) {
+		console.error("Error al obtener la clase y sus clientes:", error);
 		res
 			.status(500)
 			.json({ message: "Error al obtener la clase y sus clientes" });
@@ -917,6 +937,8 @@ const verificarInasistencia = async (req, res) => {
 };
 
 const asistencia = async (req, res) => {
+	console.log("Asistencia");
+	console.log(req.body);
 	try {
 		const { id } = req.params;
 		const { idCliente } = req.body;
@@ -952,8 +974,8 @@ const asistencia = async (req, res) => {
 				await asistenciaExistente.save();
 				if (cliente.esPrimeraClase) {
 					cliente.esPrimeraClase = false;
+					await encuesta(cliente.email, cliente._id);
 				}
-				await encuesta(cliente.email, cliente._id);
 				res.json({ msg: "Asistencia Registrada correctamente." });
 			} else if (!asistenciaExistente) {
 				const nuevaAsistencia = new Asistencias({
@@ -962,9 +984,9 @@ const asistencia = async (req, res) => {
 				});
 				if (cliente.esPrimeraClase) {
 					cliente.esPrimeraClase = false;
+					await encuesta(cliente.email, cliente._id);
 				}
 				await nuevaAsistencia.save();
-				await encuesta(cliente.email, cliente._id);
 				res.json({ msg: "Asistencia Registrada correctamente." });
 			} else {
 				res.status(400).json({
@@ -991,7 +1013,7 @@ const asistencia = async (req, res) => {
 			console.log(clase.recupero);
 			await clase.save();
 		}
-
+		await verificarUltimoDiaSemanaDelMes(cliente);
 		cliente.asistioHoy = "Si";
 		await cliente.save();
 	} catch (error) {
@@ -1254,7 +1276,7 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 			});
 
 			if (asistenciasDelMes.length === 0) {
-				const mensaje = `Hola ${cliente.nombre},\n\nTe escribimos ya que hoy registramos una inasistencia en tu primer clase del mes.\nPor favor, necesitamos saber si seguiras viniendo para seguir manteniendo tu cupo. \n\nEsperamos tu respuesta a la breveded \nSaludos\nEquipo Kinestretch`;
+				const mensaje = `Hola ${cliente.nombre},\n\nTe escribimos ya que hoy registramos una inasistencia en tu primer clase del mes.\nPor favor, necesitamos saber si seguiras viniendo para seguir manteniendo tu cupo. \n\nPor favor contactanos a la brevedad a nuestro Whatsapp.\nSaludos\nEquipo Kinestretch`;
 				const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
 
 				await mensajeGrupaloIndividual(
@@ -1351,7 +1373,7 @@ const obtenerAlumnosDeClase = async (req, res) => {
 		// Buscar la clase por ID y poblar los campos de clientes y recupero
 		const clase = await Clases.findById(id).populate(
 			"clientes recupero",
-			"nombre apellido dni email celular fechaNacimiento esRecupero diagnostico linkApto esPrimeraClase"
+			"nombre apellido dni email celular fechaNacimiento diagnostico linkApto esPrimeraClase"
 		);
 
 		if (!clase) {
@@ -1364,10 +1386,10 @@ const obtenerAlumnosDeClase = async (req, res) => {
 			"domingo",
 			"lunes",
 			"martes",
-			"miércoles",
+			"miercoles",
 			"jueves",
 			"viernes",
-			"sábado",
+			"sabado",
 		];
 		const indiceDiaClase = diasSemana.indexOf(
 			clase.diaDeLaSemana.toLowerCase()
@@ -1392,27 +1414,54 @@ const obtenerAlumnosDeClase = async (req, res) => {
 			inasistenciasPorCliente.add(inasistencia.cliente._id.toString());
 		});
 
-		// Filtrar los clientes y recupero excluyendo los que tienen inasistencias
-		const alumnos = [
-			...clase.clientes
-				.filter(
-					(cliente) => !inasistenciasPorCliente.has(cliente._id.toString())
-				)
-				.map((cliente) => ({
-					...cliente.toObject(),
-				})),
-			...clase.recupero
-				.filter(
-					(cliente) => !inasistenciasPorCliente.has(cliente._id.toString())
-				)
-				.map((cliente) => ({
-					...cliente.toObject(),
-				})),
-		];
+		// Función para mapear la información de los clientes
+		const mapearCliente = (cliente, esRecupero = false) => ({
+			id: cliente._id,
+			nombre: cliente.nombre,
+			apellido: cliente.apellido,
+			dni: cliente.dni,
+			email: cliente.email,
+			celular: cliente.celular,
+			fechaNacimiento: cliente.fechaNacimiento,
+			diagnostico: cliente.diagnostico,
+			linkApto: cliente.linkApto,
+			nombreContactoEmergencia: cliente.nombreContactoEmergencia,
+			celularContactoEmergencia: cliente.celularContactoEmergencia,
+			esRecupero: esRecupero,
+			fechaUltimoPago: cliente.fechaUltimoPago,
+			importeUltimoPago: cliente.importeUltimoPago,
+			asistioHoy: cliente.asistioHoy,
+			esPrimeraClase: cliente.esPrimeraClase,
+		});
+
+		// Filtrar y mapear los clientes y recupero excluyendo los que tienen inasistencias
+		const clientes = clase.clientes
+			.filter((cliente) => !inasistenciasPorCliente.has(cliente._id.toString()))
+			.map((cliente) => mapearCliente(cliente));
+
+		const clientesRecupero = clase.recupero
+			.filter((cliente) => !inasistenciasPorCliente.has(cliente._id.toString()))
+			.map((cliente) => mapearCliente(cliente, true));
+
+		// Crear un objeto para evitar duplicados y combinar listas
+		const clienteMap = {};
+
+		// Añadir clientes normales al mapa
+		clientes.forEach((cliente) => {
+			clienteMap[cliente.id] = cliente;
+		});
+
+		// Añadir clientes de recupero al mapa (sobreescribe si ya existe)
+		clientesRecupero.forEach((cliente) => {
+			clienteMap[cliente.id] = cliente;
+		});
+
+		// Convertir el mapa a una lista de clientes
+		const alumnos = Object.values(clienteMap);
 
 		// Obtener el último pago de cada alumno
 		const pagosPromises = alumnos.map(async (alumno) => {
-			const ultimoPago = await Contable.findOne({ cliente: alumno._id }).sort({
+			const ultimoPago = await Contable.findOne({ cliente: alumno.id }).sort({
 				fechaPago: -1,
 			});
 			return {
@@ -1450,10 +1499,10 @@ const obtenerAlumnosInasistentesDeClase = async (req, res) => {
 			"domingo",
 			"lunes",
 			"martes",
-			"miércoles",
+			"miercoles",
 			"jueves",
 			"viernes",
-			"sábado",
+			"sabado",
 		];
 		const indiceDiaClase = diasSemana.indexOf(
 			clase.diaDeLaSemana.toLowerCase()
@@ -1510,10 +1559,10 @@ const obtenerAlumnosAsistentesDeClase = async (req, res) => {
 			"domingo",
 			"lunes",
 			"martes",
-			"miércoles",
+			"miercoles",
 			"jueves",
 			"viernes",
-			"sábado",
+			"sabado",
 		];
 		const indiceDiaClase = diasSemana.indexOf(
 			clase.diaDeLaSemana.toLowerCase()
@@ -1950,16 +1999,20 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 
 		// Formatear las asistencias
 		const asistenciasFormateadas = asistencias.map((asistencia) => ({
-			fecha: DateTime.fromJSDate(asistencia.fechaClase).toFormat("dd/MM/yyyy"),
+			fecha: DateTime.fromJSDate(asistencia.fechaClase),
+			fechaFormateada: DateTime.fromJSDate(asistencia.fechaClase).toFormat(
+				"dd/MM/yyyy"
+			),
 			diaClase: asistencia.clase.diaDeLaSemana,
 			tipo: "asistencia",
 		}));
 
 		// Formatear las inasistencias
 		const inasistenciasFormateadas = inasistencias.map((inasistencia) => ({
-			fecha: DateTime.fromJSDate(inasistencia.fechaInasistencia).toFormat(
-				"dd/MM/yyyy"
-			),
+			fecha: DateTime.fromJSDate(inasistencia.fechaInasistencia),
+			fechaFormateada: DateTime.fromJSDate(
+				inasistencia.fechaInasistencia
+			).toFormat("dd/MM/yyyy"),
 			diaClase: inasistencia.clase.diaDeLaSemana,
 			tipo: "inasistencia",
 		}));
@@ -1967,9 +2020,15 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 		// Combinar asistencias e inasistencias en un solo array
 		const resultado = [...asistenciasFormateadas, ...inasistenciasFormateadas];
 
+		// Ordenar por fecha de la más reciente a la más antigua
+		resultado.sort((a, b) => b.fecha - a.fecha);
+
 		// Enviar el resultado al cliente
-		console.log(resultado);
-		res.json(resultado);
+		res.json(
+			resultado.map(({ fecha, ...resto }) => ({
+				...resto,
+			}))
+		);
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({
@@ -2214,6 +2273,33 @@ const cancelarClaseClienteNuevoLadoAdmin = async (req, res) => {
 	} catch (error) {
 		console.log(error);
 		res.status(500).json({ error: "Error al cancelar la clase." });
+	}
+};
+
+const verificarUltimoDiaSemanaDelMes = async (cliente) => {
+	const hoy = new Date();
+	const diaSemana = hoy.getDay(); // 0: Domingo, 1: Lunes, ..., 6: Sábado
+
+	// Obtener el último día del mes
+	const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+
+	// Obtener la fecha del último día de la misma semana
+	let ultimoDiaSemana = ultimoDiaMes;
+	while (ultimoDiaSemana.getDay() !== diaSemana) {
+		ultimoDiaSemana.setDate(ultimoDiaSemana.getDate() - 1);
+	}
+
+	// Verificar si hoy es el último día de la semana del mes
+	if (hoy.toDateString() === ultimoDiaSemana.toDateString()) {
+		const mensaje = `Hola ${cliente.nombre}! \n\nTe escribimos ya que nos gustaría saber si seguimos reservando tu lugar para el próximo mes! \nPPara confirmarlo, necesitamos que te comuniques por WhatsApp a la brevedad! \n\nEsperamos tu respuesta a la breveded \nSaludos\nEquipo Kinestretch💙`;
+		const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
+		await mensajeGrupaloIndividual(
+			cliente.email,
+			mensajeConSaltos,
+			"Confirma tu lugar"
+		);
+	} else {
+		console.log("Hoy no es el último", diaSemana, "del mes");
 	}
 };
 

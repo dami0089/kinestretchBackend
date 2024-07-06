@@ -185,24 +185,38 @@ const editarCliente = async (req, res) => {
 	const { id } = req.params;
 
 	const cliente = await Cliente.findById(id);
+	console.log(id);
+	console.log(cliente);
+	console.log(req.body);
 
 	const usuario = await Usuario.findOne({ cliente: cliente._id });
+
+	console.log(usuario);
 
 	if (!cliente) {
 		const error = new Error("No encontrado");
 		return res.status(404).json({ msg: error.message });
 	}
 
+	if (usuario) {
+		usuario.nombre = req.body.nombre;
+		usuario.apellido = req.body.apellido;
+		usuario.dni = req.body.dni;
+		usuario.email = req.body.email;
+		usuario.celu = req.body.celular;
+		await usuario.save();
+	}
+
 	cliente.nombre = req.body.nombre;
-	usuario.nombre = req.body.nombre;
+
 	cliente.apellido = req.body.apellido;
-	usuario.apellido = req.body.apellido;
+
 	cliente.dni = req.body.dni;
-	usuario.dni = req.body.dni;
+
 	cliente.email = req.body.email;
-	usuario.email = req.body.email;
+
 	cliente.celular = req.body.celular;
-	usuario.celu = req.body.celular;
+
 	cliente.fechaNacimiento = req.body.fechaNacimiento;
 	cliente.diagnostico = req.body.diagnostico;
 	cliente.aptoFisico = req.body.aptoFisico;
@@ -212,7 +226,6 @@ const editarCliente = async (req, res) => {
 	cliente.celularContactoEmergencia = req.body.celularContactoEmergencia;
 	try {
 		const clienteEditado = await cliente.save();
-		await usuario.save();
 		res.json(clienteEditado);
 	} catch (error) {
 		console.log(error);
@@ -399,30 +412,44 @@ const registrarPagoPerfilAdmin = async (req, res) => {
 const registrarRetiro = async (req, res) => {
 	const { importe, usuario } = req.body;
 
-	const profe = await Usuario.findById(usuario);
-	const caja = await Caja.findOne({
-		profesor: profe.profesor,
-		estado: "Abierta",
-	});
-	console.log(caja);
-
-	if (!caja) {
-		res.status(500).json({
-			msg: "Para retirar dinero primero tiene que haber pagos registrados",
-		});
-	}
-
 	try {
-		const pago = new Contable();
-		pago.creador = usuario;
-		pago.importe = importe;
-		pago.nombreProfe = profe.nombre + " " + profe.apellido;
+		const profe = await Usuario.findById(usuario);
 
+		if (!profe) {
+			throw new Error("Profesor no encontrado");
+		}
+
+		let caja = await Caja.findOne({
+			profesor: profe.profesor,
+			estado: "Abierta",
+		});
+		console.log(caja);
+
+		const pago = new Contable({
+			creador: usuario,
+			importe: importe,
+			nombreProfe: `${profe.nombre} ${profe.apellido}`,
+		});
 		const pagoAlmacenado = await pago.save();
-		caja.pagos.push(pagoAlmacenado._id);
+
+		if (!caja) {
+			// Si no hay caja abierta, crear una nueva
+			caja = new Caja({
+				profesor: profe.profesor,
+				sede: profe.sede,
+				estado: "Abierta",
+				pagos: [pagoAlmacenado._id],
+			});
+		} else {
+			// Si hay una caja abierta, agregar el pago a la caja existente
+			caja.pagos.push(pagoAlmacenado._id);
+		}
+
 		await caja.save();
+
 		res.json({ msg: "OK" });
 	} catch (error) {
+		console.error(error);
 		res.status(404).json({ msg: error.message });
 	}
 };
@@ -477,16 +504,27 @@ const obtenerCobrosProfesor = async (req, res) => {
 	try {
 		const { id } = req.params;
 		const user = await Usuario.findById(id);
+		if (!user) {
+			return res.status(404).json({ msg: "Usuario no encontrado" });
+		}
+
 		const profe = await Profesor.findById(user.profesor);
-		console.log(user);
-		console.log(profe);
+		if (!profe) {
+			return res.status(404).json({ msg: "Profesor no encontrado" });
+		}
 
 		const caja = await Caja.findOne({
 			profesor: profe._id,
 			estado: "Abierta",
 		}).populate("pagos");
 
-		console.log(caja);
+		console.log("Caja encontrada:", caja);
+
+		if (!caja) {
+			return res
+				.status(404)
+				.json({ msg: "No hay una caja abierta para este profesor" });
+		}
 
 		res.json(caja);
 	} catch (error) {
