@@ -120,6 +120,7 @@ const nuevoCliente = async (req, res) => {
 		res.json(clienteAlmacenado);
 	} catch (error) {
 		console.log(error);
+		res.status(500).json({ msg: "Hubo un error agregando este usuario!" });
 	}
 };
 

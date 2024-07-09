@@ -350,31 +350,60 @@ const recuperoClase = async (req, res) => {
 		const clase = await Clases.findById(idClase);
 		const cliente = await Cliente.findById(id);
 
-		if (clase.recupero.length > 0) {
-			const cantidadAlumnos = clase.clientes.length + clase.recupero;
-			if (cantidadAlumnos >= clase.cupo) {
-				return res.status(400).json({
-					msg: "La clase ya esta llena y no se puede asignar mas clientes a la misma.",
-				});
-			}
+		if (!clase || !cliente) {
+			return res.status(404).json({ msg: "Clase o cliente no encontrado" });
 		}
 
-		if (clase.clientes.length === clase.cupo) {
+		// Calcular la fecha de la próxima clase basándonos en el día de la semana de la clase
+		const hoy = new Date();
+		const diasSemana = [
+			"domingo",
+			"lunes",
+			"martes",
+			"miercoles",
+			"jueves",
+			"viernes",
+			"sabado",
+		];
+		const indiceDiaClase = diasSemana.indexOf(
+			clase.diaDeLaSemana.toLowerCase()
+		);
+		const hoyIndice = hoy.getDay();
+
+		let fechaClase = new Date();
+		fechaClase.setDate(hoy.getDate() + ((indiceDiaClase + 7 - hoyIndice) % 7));
+		fechaClase.setHours(0, 0, 0, 0); // Establecer la hora al inicio del día
+
+		// Buscar inasistencias para la clase y la fecha calculada
+		const inasistencias = await Inasistencias.find({
+			clase: idClase,
+			fechaInasistencia: {
+				$gte: fechaClase,
+				$lt: new Date(fechaClase.getTime() + 24 * 60 * 60 * 1000), // Final del día
+			},
+		});
+
+		// Verificar si hay inasistencias que liberan cupos
+		const cuposLiberados = inasistencias.length;
+
+		const cantidadAlumnos =
+			clase.clientes.length + clase.recupero.length - cuposLiberados;
+		if (cantidadAlumnos >= clase.cupo) {
 			return res.status(400).json({
-				msg: "La clase ya esta llena y no se puede asignar mas clientes a la misma.",
+				msg: "La clase ya está llena y no se puede asignar más clientes a la misma.",
 			});
 		}
 
 		// Comprobar si el cliente ya está asignado a esa clase
 		if (clase.clientes.includes(id)) {
 			return res.status(400).json({
-				msg: "No podes recuperar la clase en la que estas inscripto.",
+				msg: "No puedes recuperar la clase en la que estás inscrito.",
 			});
 		}
 
-		// Agregar el cliente a la lista de clientes de la clase
+		// Agregar el cliente a la lista de recupero de la clase
 		clase.recupero.push(id);
-		cliente.creditos = cliente.creditos - 1;
+		cliente.creditos -= 1;
 
 		// Guardar los cambios en la base de datos
 		await clase.save();
@@ -388,7 +417,7 @@ const recuperoClase = async (req, res) => {
 			mensaje,
 			"Recupero Confirmado"
 		);
-		console.log("enviado:", mensaje);
+		console.log("Enviado:", mensaje);
 
 		res.json(clase);
 	} catch (error) {
@@ -1276,7 +1305,16 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 			});
 
 			if (asistenciasDelMes.length === 0) {
-				const mensaje = `Hola ${cliente.nombre},\n\nTe escribimos ya que hoy registramos una inasistencia en tu primer clase del mes.\nPor favor, necesitamos saber si seguiras viniendo para seguir manteniendo tu cupo. \n\nPor favor contactanos a la brevedad a nuestro Whatsapp.\nSaludos\nEquipo Kinestretch`;
+				const mensaje = `Estimado/a ${cliente.nombre},
+
+Esperamos que te encuentres muy bien. Te escribimos porque hemos registrado una inasistencia en tu primera clase del mes. Queremos asegurarnos de que todo esté bien contigo y saber si continuarás asistiendo a nuestras clases para mantener tu cupo reservado.
+
+Por favor, contáctanos a la brevedad a través de nuestro WhatsApp para confirmar tu asistencia.
+
+Agradecemos tu comprensión y esperamos verte pronto.
+
+Saludos cordiales,
+Equipo Kinestretch`;
 				const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
 
 				await mensajeGrupaloIndividual(
@@ -1373,7 +1411,7 @@ const obtenerAlumnosDeClase = async (req, res) => {
 		// Buscar la clase por ID y poblar los campos de clientes y recupero
 		const clase = await Clases.findById(id).populate(
 			"clientes recupero",
-			"nombre apellido dni email celular fechaNacimiento diagnostico linkApto esPrimeraClase"
+			"nombre apellido dni email celular fechaNacimiento diagnostico linkApto esPrimeraClase nombreContactoEmergencia celularContactoEmergencia fechaUltimoPago importeUltimoPago asistioHoy"
 		);
 
 		if (!clase) {
@@ -1386,10 +1424,10 @@ const obtenerAlumnosDeClase = async (req, res) => {
 			"domingo",
 			"lunes",
 			"martes",
-			"miercoles",
+			"miércoles",
 			"jueves",
 			"viernes",
-			"sabado",
+			"sábado",
 		];
 		const indiceDiaClase = diasSemana.indexOf(
 			clase.diaDeLaSemana.toLowerCase()
@@ -1411,7 +1449,9 @@ const obtenerAlumnosDeClase = async (req, res) => {
 		// Crear un conjunto de inasistencias por cliente
 		const inasistenciasPorCliente = new Set();
 		inasistencias.forEach((inasistencia) => {
-			inasistenciasPorCliente.add(inasistencia.cliente._id.toString());
+			if (inasistencia.cliente) {
+				inasistenciasPorCliente.add(inasistencia.cliente._id.toString());
+			}
 		});
 
 		// Función para mapear la información de los clientes
@@ -1520,6 +1560,11 @@ const obtenerAlumnosInasistentesDeClase = async (req, res) => {
 				$lt: new Date(fechaClase.setHours(23, 59, 59, 999)),
 			},
 		}).populate("cliente", "nombre apellido dni email celular fechaNacimiento");
+
+		if (!inasistencias) {
+			console.log("No hay inasistencias");
+			res.status(201).json({ msg: "No hay inasistencias" });
+		}
 
 		// Filtrar los alumnos inasistentes
 		const alumnosInasistentes = inasistencias.map((inasistencia) => {
@@ -1687,6 +1732,11 @@ const comprobarInasistenciaClienteClase = async (req, res) => {
 				$lt: new Date(hoy.getTime() + 24 * 60 * 60 * 1000), // Menor que el día siguiente
 			},
 		}).populate("cliente"); // Cambiado de 'clientes' a 'cliente'
+
+		if (!inasistenciasHoy) {
+			console.log("No hay inasistencias hoy");
+			return res.status(404).send("No hay inasistencias hoy");
+		}
 
 		// Extraemos los IDs de los clientes ausentes
 		const clientesAusentes = inasistenciasHoy.map(
@@ -2231,13 +2281,13 @@ const cancelarClaseClienteNuevoLadoAdmin = async (req, res) => {
 	const finMes = fechaClase.clone().endOf("month").toDate();
 
 	const inasistenciaExistente = await Inasistencias.find({
-		cliente: usuario.cliente,
+		cliente: cliente._id,
 		fechaInasistencia: { $gte: inicioMes, $lte: finMes },
 	});
 
 	if (inasistenciaExistente.length > 0) {
 		const inasistencia = new Inasistencias({
-			cliente: usuario.cliente,
+			cliente: cliente._id,
 			clase: claseId,
 			fechaInasistencia: fechaClase.toDate(),
 		});
@@ -2251,23 +2301,23 @@ const cancelarClaseClienteNuevoLadoAdmin = async (req, res) => {
 
 	// Registrar la inasistencia con la fecha proporcionada
 	const inasistencia = new Inasistencias({
-		cliente: usuario.cliente,
+		cliente: cliente._id,
 		clase: claseId,
 		fechaInasistencia: fechaClase.toDate(),
 	});
 
 	cliente.creditos = 1;
 
-	const infoEmail = {
-		email: usuario.email,
-		nombre: usuario.nombre,
-	};
-
 	try {
 		await cliente.save();
 		const inasistenciaAlmacenada = await inasistencia.save();
-
-		await emailClaseCancelada(infoEmail);
+		if (usuario) {
+			const infoEmail = {
+				email: usuario.email,
+				nombre: usuario.nombre,
+			};
+			await emailClaseCancelada(infoEmail);
+		}
 
 		res.json({ msg2: "Gracias por avisarnos!" });
 	} catch (error) {

@@ -7,6 +7,7 @@ import imaps from "imap-simple";
 import dotenv from "dotenv";
 import Clases from "../models/Clases.js";
 import Profesor from "../models/Profesor.js";
+import Terminos from "../models/Terminos.js";
 dotenv.config();
 
 const config = {
@@ -291,6 +292,88 @@ const datosDash = async (req, res) => {
 	}
 };
 
+const obtenerTerminosyCondiciones = async (req, res) => {
+	const terminosyCondiciones = await Terminos.find();
+	res.json(terminosyCondiciones);
+};
+
+const nuevosTerminos = async (req, res) => {
+	try {
+		let terminosBase = await Terminos.findOne();
+
+		if (!terminosBase) {
+			// Si no existe ningún término en la base de datos, crea uno nuevo
+			const terminos = new Terminos(req.body);
+			await terminos.save();
+			return res.json({ msg: "Términos y condiciones creados correctamente" });
+		}
+
+		// Si se está editando, vaciar la lista de aceptados
+		terminosBase.aceptados = [];
+		terminosBase.texto = req.body.texto;
+		terminosBase.estado = req.body.estado;
+
+		await terminosBase.save();
+
+		res.json({ msg: "Términos y condiciones actualizados correctamente" });
+	} catch (error) {
+		console.log(error);
+		res.status(500).send({ msg: "Error al guardar términos y condiciones" });
+	}
+};
+
+const editarTerminos = async (req, res) => {
+	const { id } = req.params;
+
+	const terminos = await Terminos.findById(id);
+
+	if (!terminos) {
+		const error = new Error("No encontrado");
+		return res.status(404).json({ msg: error.message });
+	}
+
+	terminos.texto = req.body.texto || terminos.texto;
+
+	try {
+		const terminosAlmacenados = await terminos.save();
+		res.json(terminosAlmacenados);
+	} catch (error) {
+		console.log(error);
+	}
+};
+
+const consultarTerminos = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		const terminos = await Terminos.findOne({ estado: "activa" }).populate(
+			"aceptados",
+			"_id"
+		);
+
+		const usuarioAceptado = terminos.aceptados.some(
+			(usuario) => usuario._id.toString() === id
+		);
+
+		res.json({ aceptado: usuarioAceptado });
+	} catch (error) {
+		console.error(error);
+	}
+};
+
+const aceptarTerminos = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		const terminos = await Terminos.findOne();
+		terminos.aceptados.push(id);
+		await terminos.save();
+		res.json({ msg: "Terminos aceptados correctamente" });
+	} catch (error) {
+		res.status(500).send("Error al aceptar terminos");
+	}
+};
+
 export {
 	registrar,
 	autenticar,
@@ -306,4 +389,9 @@ export {
 	editarUsuario,
 	eliminarUsuario,
 	datosDash,
+	obtenerTerminosyCondiciones,
+	nuevosTerminos,
+	editarTerminos,
+	consultarTerminos,
+	aceptarTerminos,
 };
