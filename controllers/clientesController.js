@@ -126,8 +126,12 @@ const nuevoCliente = async (req, res) => {
 
 const obtenerCliente = async (req, res) => {
 	const { id } = req.params;
+	console.log("OBTENER ID");
+	console.log(id);
 
 	const cliente = await Cliente.findById(id);
+
+	console.log(cliente);
 
 	if (!cliente) {
 		const error = new Error("Cliente no encontrado");

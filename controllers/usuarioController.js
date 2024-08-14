@@ -80,8 +80,10 @@ const editarUsuario = async (req, res) => {
 const registrar = async (req, res) => {
 	req.body.email = req.body.email.toLowerCase();
 	//Evita registros duplicados
-	const { email } = req.body;
+	let { email } = req.body;
 	const { cuit } = req.body;
+
+	email = email.toLowerCase();
 
 	const existeUsuario = await Usuario.findOne({ email });
 
@@ -350,12 +352,21 @@ const consultarTerminos = async (req, res) => {
 			"aceptados",
 			"_id"
 		);
+		console.log(terminos);
 
-		const usuarioAceptado = terminos.aceptados.some(
-			(usuario) => usuario._id.toString() === id
-		);
+		if (terminos && terminos.length > 0) {
+			const usuarioAceptado = terminos.aceptados.some(
+				(usuario) => usuario._id.toString() === id
+			);
 
-		res.json({ aceptado: usuarioAceptado });
+			res.json({ aceptado: usuarioAceptado });
+		} else {
+			res.json({ aceptado: true });
+		}
+
+		// const usuarioAceptado = terminos.aceptados.some(
+		// 	(usuario) => usuario._id.toString() === id
+		// );
 	} catch (error) {
 		console.error(error);
 	}

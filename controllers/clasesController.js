@@ -344,7 +344,6 @@ const asignarClienteaClase = async (req, res) => {
 const recuperoClase = async (req, res) => {
 	const { id } = req.params;
 	const { idClase } = req.body;
-	console.log(idClase);
 
 	try {
 		const clase = await Clases.findById(idClase);
@@ -432,9 +431,16 @@ const eliminarClienteDeClase = async (req, res) => {
 	const { id } = req.params;
 	const { idCliente } = req.body;
 
+	console.log("Eliminando Cliente de clase");
+	console.log(idCliente);
+	console.log(id);
+
 	try {
 		// Buscar la clase y eliminar el ID del cliente
 		const clase = await Clases.findById(id);
+
+		console.log("Clase:", clase);
+
 		if (!clase) {
 			return res.status(404).json({ message: "Clase no encontrada" });
 		}
@@ -442,20 +448,28 @@ const eliminarClienteDeClase = async (req, res) => {
 			clase.clientes = clase.clientes.filter(
 				(clienteId) => !clienteId.equals(idCliente)
 			);
+			console.log("Clientes:", clase.clientes);
 		}
 		if (clase.recupero.includes(idCliente)) {
-			clase.recupero = clase.clientes.filter(
+			clase.recupero = clase.recupero.filter(
 				(clienteId) => !clienteId.equals(idCliente)
 			);
+			console.log("Recupero:", clase.recupero);
 		}
 		await clase.save();
 
 		// Buscar el cliente y eliminar el ID de la clase
 		const cliente = await Cliente.findById(idCliente);
+		console.log(cliente);
+
 		if (!cliente) {
 			return res.status(404).json({ message: "Cliente no encontrado" });
 		}
+
 		cliente.clases = cliente.clases.filter((claseId) => !claseId.equals(id));
+
+		console.log("Clases cliente:", cliente.clases);
+
 		await cliente.save();
 
 		// Responder con un mensaje de éxito
@@ -657,9 +671,6 @@ const obtenerClasesOrdenadas = async (req, res) => {
 	const { id } = req.params;
 	const { dia } = req.body;
 
-	console.log(id);
-	console.log(dia);
-
 	try {
 		// Calcular la fecha exacta del próximo día solicitado
 		const diasDeLaSemana = [
@@ -671,7 +682,7 @@ const obtenerClasesOrdenadas = async (req, res) => {
 			"Viernes",
 			"Sabado",
 		];
-		const hoy = moment();
+		const hoy = moment().utc(); // Cambiar a UTC
 		const indiceHoy = hoy.day();
 		const indiceDiaSolicitado = diasDeLaSemana.indexOf(dia);
 
@@ -682,7 +693,23 @@ const obtenerClasesOrdenadas = async (req, res) => {
 		const diasHastaElDiaSolicitado = (indiceDiaSolicitado + 7 - indiceHoy) % 7;
 		const fechaDelDiaSolicitado = hoy
 			.add(diasHastaElDiaSolicitado, "days")
-			.startOf("day");
+			.startOf("day")
+			.toDate(); // Convertir a objeto Date en UTC
+
+		// Verificar si la fecha calculada coincide con un feriado
+		const feriado = await Feriados.findOne({
+			fechaFeriado: {
+				$gte: fechaDelDiaSolicitado,
+				$lt: new Date(fechaDelDiaSolicitado.getTime() + 24 * 60 * 60 * 1000),
+			},
+		});
+
+		// Si la fecha coincide con un feriado, devolver un array vacío
+		if (feriado) {
+			return res.json([
+				{ _id: 1, nombreProfe: "FERIADO", horarioInicio: "FERIADO" },
+			]); // Devuelve un array vacío
+		}
 
 		// Buscar clases para el día especificado
 		const clases = await Clases.find({
@@ -694,8 +721,8 @@ const obtenerClasesOrdenadas = async (req, res) => {
 		// Obtener inasistencias para la fecha del día solicitado
 		const inasistencias = await Inasistencias.find({
 			fechaInasistencia: {
-				$gte: fechaDelDiaSolicitado.toDate(),
-				$lt: fechaDelDiaSolicitado.add(1, "days").toDate(),
+				$gte: fechaDelDiaSolicitado,
+				$lt: new Date(fechaDelDiaSolicitado.getTime() + 24 * 60 * 60 * 1000),
 			},
 		});
 
@@ -1042,7 +1069,6 @@ const asistencia = async (req, res) => {
 			console.log(clase.recupero);
 			await clase.save();
 		}
-		await verificarUltimoDiaSemanaDelMes(cliente);
 		cliente.asistioHoy = "Si";
 		await cliente.save();
 	} catch (error) {
@@ -1074,7 +1100,7 @@ const inasistenciaListaProfe = async (req, res) => {
 			);
 			await clase.save();
 		}
-
+		await verificarUltimoDiaSemanaDelMes(cliente);
 		await nuevaInasistencia.save();
 		cliente.asistioHoy = "No";
 		await cliente.save();
@@ -1284,30 +1310,47 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 			.tz("America/Argentina/Buenos_Aires")
 			.toDate();
 
+		// Mantener lógica inalterada para `esPrimeraClase`
 		if (cliente.esPrimeraClase) {
 			await Clases.updateOne({ _id: idClase }, { $pull: { clientes: id } });
 
 			const nuevaInasistencia = new Inasistencias({
 				cliente: id,
 				clase: idClase,
-				fechaInasistencia: fechaInasistencia, // Usando la fecha y hora actual en Argentina
+				fechaInasistencia: fechaInasistencia,
 			});
 
 			await nuevaInasistencia.save();
 		} else {
-			console.log("Entrando al else");
+			// Verificar si hoy es la primera o última clase del mes para el día específico de la semana
+			const diaSemana = clase.diaDeLaSemana; // Obtener el día de la semana de la clase
+			const hoy = moment().tz("America/Argentina/Buenos_Aires");
 
-			// Verificar si es la primera clase del mes
-			const inicioMes = moment().startOf("month").toDate();
-			const asistenciasDelMes = await Asistencias.find({
-				clientes: id,
-				fechaClase: { $gte: inicioMes },
-			});
+			// Encontrar el primer día específico del mes (por ejemplo, primer lunes)
+			const inicioMes = moment().startOf("month");
+			let primeraClaseMes = inicioMes.clone();
 
-			if (asistenciasDelMes.length === 0) {
+			while (primeraClaseMes.day() !== diaSemana) {
+				primeraClaseMes.add(1, "day");
+			}
+
+			// Encontrar el último día específico del mes (por ejemplo, último lunes)
+			const ultimoDiaDelMes = moment().endOf("month").startOf("day");
+			while (ultimoDiaDelMes.day() !== diaSemana) {
+				ultimoDiaDelMes.subtract(1, "day");
+			}
+
+			// Verificar si hoy es la primera o última clase del mes y enviar mensaje si corresponde
+			if (
+				hoy.isSame(primeraClaseMes, "day") ||
+				hoy.isSame(ultimoDiaDelMes, "day")
+			) {
+				const esPrimeraClase = hoy.isSame(primeraClaseMes, "day");
 				const mensaje = `Estimado/a ${cliente.nombre},
 
-Esperamos que te encuentres muy bien. Te escribimos porque hemos registrado una inasistencia en tu primera clase del mes. Queremos asegurarnos de que todo esté bien contigo y saber si continuarás asistiendo a nuestras clases para mantener tu cupo reservado.
+Esperamos que te encuentres muy bien. Te escribimos porque hemos registrado una inasistencia en tu ${
+					esPrimeraClase ? "primera" : "última"
+				} clase del mes. Queremos asegurarnos de que todo esté bien contigo y saber si continuarás asistiendo a nuestras clases para mantener tu cupo reservado.
 
 Por favor, contáctanos a la brevedad a través de nuestro WhatsApp para confirmar tu asistencia.
 
@@ -1324,10 +1367,11 @@ Equipo Kinestretch`;
 				);
 			}
 
+			// Registrar la inasistencia sin importar si es la primera o última clase del mes
 			const nuevaInasistencia = new Inasistencias({
 				cliente: id,
 				clase: idClase,
-				fechaInasistencia: fechaInasistencia, // Usando la fecha y hora actual en Argentina
+				fechaInasistencia: fechaInasistencia,
 			});
 
 			await nuevaInasistencia.save();
@@ -1703,13 +1747,17 @@ const comprobarAsistenciaClienteClase = async (req, res) => {
 			},
 		}).populate("clientes"); // Para obtener detalles del cliente, si es necesario
 
-		// Extraemos los IDs de los clientes presentes
-		const clientesPresentes = asistenciasHoy
-			.map((asistencia) => asistencia.clientes.map((cliente) => cliente._id))
-			.flat(); // Usamos flat para convertir el array de arrays en un único array
+		if (asistenciasHoy) {
+			// Extraemos los IDs de los clientes presentes
+			const clientesPresentes = asistenciasHoy
+				.map((asistencia) => asistencia.clientes.map((cliente) => cliente._id))
+				.flat(); // Usamos flat para convertir el array de arrays en un único array
 
-		// Devolvemos los IDs de los clientes presentes
-		res.json(clientesPresentes);
+			// Devolvemos los IDs de los clientes presentes
+			res.json(clientesPresentes);
+		} else {
+			res.status(200).send("No hay asistencias hoy");
+		}
 	} catch (error) {
 		console.error("Error al comprobar asistencia de cliente: ", error);
 		res.status(500).send("Error al comprobar la asistencia de la clase");
@@ -2000,19 +2048,19 @@ const eliminarClienteRecupero = async (req, res) => {
 		console.log("Hora de inicio de la clase:", horaInicioClase);
 
 		// Si la clase es hoy, verificamos la hora actual contra la hora de inicio
-		const hoy = moment().tz("America/Argentina/Buenos_Aires").startOf("day");
-		if (ahora.isSame(hoy, "day")) {
-			if (
-				(horaActual > horaInicioClase - 1 && horaActual < horaInicioClase) ||
-				(horaActual === horaInicioClase - 1 && minutoActual >= 0) ||
-				horaActual >= horaInicioClase
-			) {
-				return res.status(400).json({
-					error:
-						"No puedes cancelar una clase de recupero una hora antes o después de la hora de inicio.",
-				});
-			}
-		}
+		// const hoy = moment().tz("America/Argentina/Buenos_Aires").startOf("day");
+		// if (ahora.isSame(hoy, "day")) {
+		// 	if (
+		// 		(horaActual > horaInicioClase - 1 && horaActual < horaInicioClase) ||
+		// 		(horaActual === horaInicioClase - 1 && minutoActual >= 0) ||
+		// 		horaActual >= horaInicioClase
+		// 	) {
+		// 		return res.status(400).json({
+		// 			error:
+		// 				"No puedes cancelar una clase de recupero una hora antes o después de la hora de inicio.",
+		// 		});
+		// 	}
+		// }
 
 		// Remover el cliente del arreglo de recupero
 		clase.recupero.splice(clienteIndex, 1);
