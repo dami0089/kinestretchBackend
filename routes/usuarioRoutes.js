@@ -21,6 +21,9 @@ import {
 	editarTerminos,
 	consultarTerminos,
 	aceptarTerminos,
+	registrarUsuarioBackoffice,
+	obtenerUsuariosPorRol,
+	obtenerSedesDeUsuario,
 } from "../controllers/usuarioController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -48,5 +51,13 @@ router.post("/nuevos-terminos", checkAuth, nuevosTerminos);
 router.post("/editar-terminos/:id", checkAuth, editarTerminos);
 router.post("/consultar-terminos/:id", consultarTerminos);
 router.post("/aceptar-terminos/:id", aceptarTerminos);
+router.post(
+	"/registrar-usuario-backoffice",
+	checkAuth,
+	registrarUsuarioBackoffice
+);
+router.get("/obtener-usuarios-por-rol", checkAuth, obtenerUsuariosPorRol);
+
+router.get("/obtener-sedes-de-usuario/:id", checkAuth, obtenerSedesDeUsuario);
 
 export default router;

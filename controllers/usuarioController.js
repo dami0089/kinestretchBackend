@@ -144,6 +144,7 @@ const autenticar = async (req, res) => {
 			nombre: usuario.nombre,
 			email: usuario.email, // Este email ya es el almacenado en la base de datos, no necesita transformación
 			rol: usuario.rol,
+			sede: usuario.sedes,
 			cliente: usuario.cliente,
 			token: generarJWT(usuario._id),
 			profesor: usuario.profesor,
@@ -385,6 +386,80 @@ const aceptarTerminos = async (req, res) => {
 	}
 };
 
+const registrarUsuarioBackoffice = async (req, res) => {
+	const { nombre, apellido, dni, password, email, celu, rol, sedes } = req.body;
+
+	// Verificar si el usuario ya está registrado
+	const existeUsuario = await Usuario.findOne({ email });
+	if (existeUsuario) {
+		const error = new Error("El usuario ya está registrado");
+		return res.status(400).json({ msg: error.message });
+	}
+
+	try {
+		// Crear un nuevo usuario
+		const nuevoUsuario = new Usuario({
+			nombre,
+			apellido,
+			dni,
+			password,
+			email,
+			celu,
+			rol,
+			sedes: Array.isArray(sedes) ? sedes : [sedes], // Asegurarse de que "sedes" sea un array
+			token: generarId(),
+		});
+
+		// Guardar el nuevo usuario en la base de datos
+
+		const usuarioAlmacenado = await nuevoUsuario.save();
+		// Enviamos el email de confirmacion
+		await emailRegistro({
+			email: usuarioAlmacenado.email,
+			nombre: usuarioAlmacenado.nombre,
+			token: usuarioAlmacenado.token,
+		});
+		res.status(201).json({ msg: "Usuario creado correctamente" });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ msg: "Hubo un error al registrar el usuario" });
+	}
+};
+
+const obtenerUsuariosPorRol = async (req, res) => {
+	try {
+		// Filtrar usuarios que tengan alguno de los roles especificados
+		const usuarios = await Usuario.find({
+			rol: { $in: ["admin", "socio", "secretaria"] },
+		});
+
+		res.json(usuarios);
+	} catch (error) {
+		res.status(500).send("Error al obtener los usuarios");
+	}
+};
+
+const obtenerSedesDeUsuario = async (req, res) => {
+	try {
+		const { id } = req.params;
+
+		// Buscar el usuario por ID y popular las sedes asociadas
+		const usuario = await Usuario.findById(id).populate(
+			"sedes",
+			"nombre direccion"
+		);
+
+		if (!usuario) {
+			return res.status(404).json({ msg: "Usuario no encontrado" });
+		}
+
+		// Devolver solo las sedes populadas
+		res.json(usuario.sedes);
+	} catch (error) {
+		res.status(500).json({ msg: "Error al obtener las sedes del usuario" });
+	}
+};
+
 export {
 	registrar,
 	autenticar,
@@ -405,4 +480,7 @@ export {
 	editarTerminos,
 	consultarTerminos,
 	aceptarTerminos,
+	registrarUsuarioBackoffice,
+	obtenerUsuariosPorRol,
+	obtenerSedesDeUsuario,
 };

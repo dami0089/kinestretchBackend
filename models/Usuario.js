@@ -5,7 +5,6 @@ const usuarioSchema = mongoose.Schema(
 	{
 		nombre: {
 			type: String,
-			required: true,
 			trim: true,
 		},
 		apellido: {
@@ -48,6 +47,12 @@ const usuarioSchema = mongoose.Schema(
 			type: Boolean,
 			default: true,
 		},
+		sedes: [
+			{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Sedes",
+			},
+		],
 		cliente: [
 			{
 				type: mongoose.Schema.Types.ObjectId,

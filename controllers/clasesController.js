@@ -10,7 +10,6 @@ import Inasistencias from "../models/Inasistencias.js";
 import moment from "moment-timezone";
 import mongoose from "mongoose";
 import Asistencias from "../models/AsistenciasClases.js";
-import cron from "node-cron";
 
 import {
 	claseAsignada,
@@ -1322,50 +1321,49 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 
 			await nuevaInasistencia.save();
 		} else {
-			// Verificar si hoy es la primera o última clase del mes para el día específico de la semana
-			const diaSemana = clase.diaDeLaSemana; // Obtener el día de la semana de la clase
-			const hoy = moment().tz("America/Argentina/Buenos_Aires");
+			// const diaSemana = clase.diaDeLaSemana;
+			// const hoy = moment().tz("America/Argentina/Buenos_Aires");
 
 			// Encontrar el primer día específico del mes (por ejemplo, primer lunes)
-			const inicioMes = moment().startOf("month");
-			let primeraClaseMes = inicioMes.clone();
+			// const inicioMes = moment().startOf("month");
+			// let primeraClaseMes = inicioMes.clone();
 
-			while (primeraClaseMes.day() !== diaSemana) {
-				primeraClaseMes.add(1, "day");
-			}
+			// while (primeraClaseMes.day() !== diaSemana) {
+			// 	primeraClaseMes.add(1, "day");
+			// }
 
 			// Encontrar el último día específico del mes (por ejemplo, último lunes)
-			const ultimoDiaDelMes = moment().endOf("month").startOf("day");
-			while (ultimoDiaDelMes.day() !== diaSemana) {
-				ultimoDiaDelMes.subtract(1, "day");
-			}
+			// const ultimoDiaDelMes = moment().endOf("month").startOf("day");
+			// while (ultimoDiaDelMes.day() !== diaSemana) {
+			// 	ultimoDiaDelMes.subtract(1, "day");
+			// }
 
 			// Verificar si hoy es la primera o última clase del mes y enviar mensaje si corresponde
-			if (
-				hoy.isSame(primeraClaseMes, "day") ||
-				hoy.isSame(ultimoDiaDelMes, "day")
-			) {
-				const esPrimeraClase = hoy.isSame(primeraClaseMes, "day");
-				const mensaje = `Estimado/a ${cliente.nombre},
+			// 			if (
+			// 				hoy.isSame(primeraClaseMes, "day") ||
+			// 				hoy.isSame(ultimoDiaDelMes, "day")
+			// 			) {
+			// 				const esPrimeraClase = hoy.isSame(primeraClaseMes, "day");
+			// 				const mensaje = `Estimado/a ${cliente.nombre},
 
-Esperamos que te encuentres muy bien. Te escribimos porque hemos registrado una inasistencia en tu ${
-					esPrimeraClase ? "primera" : "última"
-				} clase del mes. Queremos asegurarnos de que todo esté bien contigo y saber si continuarás asistiendo a nuestras clases para mantener tu cupo reservado.
+			// Esperamos que te encuentres muy bien. Te escribimos porque hemos registrado una inasistencia en tu ${
+			// 					esPrimeraClase ? "primera" : "última"
+			// 				} clase del mes. Queremos asegurarnos de que todo esté bien contigo y saber si continuarás asistiendo a nuestras clases para mantener tu cupo reservado.
 
-Por favor, contáctanos a la brevedad a través de nuestro WhatsApp para confirmar tu asistencia.
+			// Por favor, contáctanos a la brevedad a través de nuestro WhatsApp para confirmar tu asistencia.
 
-Agradecemos tu comprensión y esperamos verte pronto.
+			// Agradecemos tu comprensión y esperamos verte pronto.
 
-Saludos cordiales,
-Equipo Kinestretch`;
-				const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
+			// Saludos cordiales,
+			// Equipo Kinestretch`;
+			// 				const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
 
-				await mensajeGrupaloIndividual(
-					cliente.email,
-					mensajeConSaltos,
-					"Registramos una inasistencia!"
-				);
-			}
+			// 				await mensajeGrupaloIndividual(
+			// 					cliente.email,
+			// 					mensajeConSaltos,
+			// 					"Registramos una inasistencia!"
+			// 				);
+			// 			}
 
 			// Registrar la inasistencia sin importar si es la primera o última clase del mes
 			const nuevaInasistencia = new Inasistencias({
