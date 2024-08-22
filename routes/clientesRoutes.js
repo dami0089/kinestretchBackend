@@ -32,6 +32,7 @@ import {
 	quitarCredito,
 	eliminarPago,
 	eliminarCliente,
+	obtenerClientesPorSede,
 } from "../controllers/clientesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -96,5 +97,7 @@ router.post("/quitar-creditos/:id", checkAuth, quitarCredito);
 
 router.delete("/eliminar-pago/:id", checkAuth, eliminarPago);
 router.delete("/eliminar-cliente/:id", checkAuth, eliminarCliente);
+
+router.get("/clientes-por-sede/:id", checkAuth, obtenerClientesPorSede);
 
 export default router;

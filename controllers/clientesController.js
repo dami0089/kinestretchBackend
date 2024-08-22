@@ -778,6 +778,28 @@ const eliminarCliente = async (req, res) => {
 	}
 };
 
+const obtenerClientesPorSede = async (req, res) => {
+	const { id } = req.params; // El ID de la sede se recibe desde los parámetros de la URL
+
+	try {
+		// Buscar todos los clientes que pertenecen a la sede especificada
+		const clientes = await Cliente.find({ sede: id, isActivo: true }).populate(
+			"sede",
+			"nombre direccion"
+		);
+
+		if (!clientes) {
+			return res
+				.status(404)
+				.json({ msg: "No se encontraron clientes para esta sede" });
+		}
+
+		res.json(clientes);
+	} catch (error) {
+		res.status(500).json({ msg: "Error al obtener los clientes de la sede" });
+	}
+};
+
 export {
 	obtenerClientesActivos,
 	nuevoCliente,
@@ -809,4 +831,5 @@ export {
 	quitarCredito,
 	eliminarPago,
 	eliminarCliente,
+	obtenerClientesPorSede,
 };
