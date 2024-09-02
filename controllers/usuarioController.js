@@ -316,7 +316,8 @@ const nuevosTerminos = async (req, res) => {
 		terminosBase.texto = req.body.texto;
 		terminosBase.estado = req.body.estado;
 
-		await terminosBase.save();
+		const terminosGuardados = await terminosBase.save();
+		console.log(terminosGuardados);
 
 		res.json({ msg: "Términos y condiciones actualizados correctamente" });
 	} catch (error) {
@@ -347,6 +348,7 @@ const editarTerminos = async (req, res) => {
 
 const consultarTerminos = async (req, res) => {
 	const { id } = req.params;
+	console.log(id);
 
 	try {
 		const terminos = await Terminos.findOne({ estado: "activa" }).populate(
@@ -355,21 +357,17 @@ const consultarTerminos = async (req, res) => {
 		);
 		console.log(terminos);
 
-		if (terminos && terminos.length > 0) {
+		if (terminos && terminos.aceptados.length > 0) {
 			const usuarioAceptado = terminos.aceptados.some(
 				(usuario) => usuario._id.toString() === id
 			);
-
 			res.json({ aceptado: usuarioAceptado });
 		} else {
-			res.json({ aceptado: true });
+			res.json({ aceptado: false });
 		}
-
-		// const usuarioAceptado = terminos.aceptados.some(
-		// 	(usuario) => usuario._id.toString() === id
-		// );
 	} catch (error) {
 		console.error(error);
+		res.status(500).json({ error: "Internal server error" });
 	}
 };
 

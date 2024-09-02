@@ -278,6 +278,12 @@ const editarSede = async (req, res) => {
 	}
 };
 
+export const convertirHora = (horaDecimal) => {
+	const horas = Math.floor(horaDecimal);
+	const minutos = (horaDecimal % 1) * 60;
+	return `${horas}:${minutos === 0 ? "00" : minutos}`;
+};
+
 const asignarClienteaClase = async (req, res) => {
 	const { id } = req.params;
 	const { idClase, primerClase } = req.body;
@@ -321,7 +327,9 @@ const asignarClienteaClase = async (req, res) => {
 		await clase.save();
 		const clienteAlmacenado = await cliente.save();
 
-		const diayhorario = `${clase.diaDeLaSemana} - ${clase.horarioInicio} hs`;
+		const diayhorario = `${clase.diaDeLaSemana} - ${convertirHora(
+			clase.horarioInicio
+		)} hs`;
 
 		await claseAsignada(
 			clase.nombreSede,
@@ -407,7 +415,13 @@ const recuperoClase = async (req, res) => {
 		await clase.save();
 		await cliente.save();
 
-		const mensaje = `Hola ${cliente.nombre}, te informamos que tu recupero para la clase de ${clase.nombreProfe} el día ${clase.diaDeLaSemana} a las ${clase.horarioInicio} hs en la sede ${clase.nombreSede} ha sido confirmado.`;
+		const mensaje = `Hola ${
+			cliente.nombre
+		}, te informamos que tu recupero para la clase de ${
+			clase.nombreProfe
+		} el día ${clase.diaDeLaSemana} a las ${convertirHora(
+			clase.horarioInicio
+		)} hs en la sede ${clase.nombreSede} ha sido confirmado.`;
 
 		console.log("Mensaje:", mensaje);
 		await mensajeGrupaloIndividual(
