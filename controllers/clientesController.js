@@ -17,6 +17,7 @@ import Certificados from "../models/Certificados.js";
 import moment from "moment";
 import Caja from "../models/Caja.js";
 import Profesor from "../models/Profesor.js";
+import Creditos from "../models/Creditos.js";
 
 const obtenerClientesActivos = async (req, res) => {
 	try {
@@ -589,33 +590,100 @@ const obtenerPagosCliente = async (req, res) => {
 
 const otorgarCreditos = async (req, res) => {
 	const { id } = req.params;
+	const { fechaVencimiento, tipo } = req.body;
+
+	console.log(req.body);
 
 	const cliente = await Cliente.findById(id);
 
-	if (cliente.creditos) {
-		cliente.creditos = cliente.creditos + 1;
-		await cliente.save();
-	}
+	const creditos = new Creditos();
 
-	if (!cliente.creditos) {
-		cliente.creditos = 1;
+	try {
+		creditos.cliente = id;
+		creditos.tipo = tipo;
+		creditos.fechaVencimiento = fechaVencimiento;
+
+		const creditoAlmacenado = await creditos.save();
+
 		await cliente.save();
+
+		res.json({ msg: "OK" });
+	} catch (error) {
+		console.log(error);
+		const mensaje = "Error al otorgar creditos";
+		res.status(404).json({ msg: mensaje });
 	}
-	res.json({ msg: "OK" });
+};
+
+const obtenerCreditosActivos = async (req, res) => {
+	const { id } = req.params; // ID del cliente
+
+	try {
+		// Obtener la fecha actual
+		const hoy = new Date();
+
+		// Buscar los créditos activos del cliente con la fecha de vencimiento válida
+		const creditosActivos = await Creditos.find({
+			cliente: id,
+			estado: "Activo",
+			fechaVencimiento: { $gte: hoy }, // Solo los créditos no vencidos
+		});
+
+		if (!creditosActivos || creditosActivos.length === 0) {
+			return res
+				.status(201)
+				.json({ msg: "No se encontraron créditos activos" });
+		}
+		res.json(creditosActivos); // Devolver los créditos activos
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ msg: "Error al obtener los créditos activos" });
+	}
+};
+
+const obtenerHistorialCreditos = async (req, res) => {
+	const { id } = req.params; // ID del cliente
+
+	try {
+		const hoy = new Date();
+
+		// Actualizar el estado de los créditos vencidos a "Inactivo"
+		await Creditos.updateMany(
+			{
+				cliente: id,
+				fechaVencimiento: { $lt: hoy }, // Créditos que han vencido
+				estado: "Activo", // Solo actualizamos si están en estado "Activo"
+			},
+			{ estado: "Vencido" } // Cambiamos el estado a "Inactivo"
+		);
+
+		// Buscar y devolver el historial de créditos ordenados por estado
+		const historialCreditos = await Creditos.find({
+			cliente: id,
+		}).sort({ estado: 1 }); // Ordena por estado: Activo primero, Inactivo después
+
+		res.json(historialCreditos); // Devolver el historial de créditos
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ msg: "Error al obtener el historial de créditos" });
+	}
 };
 
 const quitarCredito = async (req, res) => {
 	const { id } = req.params;
 
-	const cliente = await Cliente.findById(id);
+	try {
+		const credito = await Creditos.findByIdAndDelete(id);
 
-	if (cliente.creditos) {
-		cliente.creditos = cliente.creditos - 1;
-		await cliente.save();
-		res.json({ msg: "OK" });
-	} else {
-		const error = new Error("No tiene creditos para restar");
-		return res.status(404).json({ msg: error.message });
+		if (!credito) {
+			const error = new Error("No encontrado");
+			return res.status(404).json({ msg: error.message });
+		} else {
+			res.json({ msg: "Credito eliminado correctamente" });
+		}
+	} catch (error) {
+		console.log(error);
+		res.status(404).json({ msg: error.message });
 	}
 };
 
@@ -779,7 +847,7 @@ const eliminarCliente = async (req, res) => {
 };
 
 const obtenerClientesPorSede = async (req, res) => {
-	const { id } = req.params; // El ID de la sede se recibe desde los parámetros de la URL
+	const { id } = req.params;
 
 	try {
 		// Buscar todos los clientes que pertenecen a la sede especificada
@@ -797,6 +865,43 @@ const obtenerClientesPorSede = async (req, res) => {
 		res.json(clientes);
 	} catch (error) {
 		res.status(500).json({ msg: "Error al obtener los clientes de la sede" });
+	}
+};
+
+const obtenerClientesInactivosPorSede = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		// Buscar todos los clientes que pertenecen a la sede especificada
+		const clientes = await Cliente.find({ sede: id, isActivo: false }).populate(
+			"sede",
+			"nombre direccion"
+		);
+
+		if (!clientes) {
+			return res
+				.status(404)
+				.json({ msg: "No se encontraron clientes para esta sede" });
+		}
+
+		res.json(clientes);
+	} catch (error) {
+		res.status(500).json({ msg: "Error al obtener los clientes de la sede" });
+	}
+};
+
+const obtenerClientesActivosSinClases = async (req, res) => {
+	try {
+		const clientes = await Cliente.find({
+			isActivo: true,
+			clases: { $size: 0 },
+		});
+		console.log(clientes);
+
+		res.json(clientes);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Error al obtener los clientes");
 	}
 };
 
@@ -832,4 +937,8 @@ export {
 	eliminarPago,
 	eliminarCliente,
 	obtenerClientesPorSede,
+	obtenerCreditosActivos,
+	obtenerHistorialCreditos,
+	obtenerClientesActivosSinClases,
+	obtenerClientesInactivosPorSede,
 };

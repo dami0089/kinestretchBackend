@@ -51,6 +51,7 @@ import {
 	comunicarFeriado,
 	eliminarFeriado,
 	cancelarClaseClienteNuevoLadoAdmin,
+	asignarRecuperoAdmin,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -106,6 +107,7 @@ router.post("/obtener-clase/:id", checkAuth, obtenerClase);
 
 router.post("/asignar-cliente-a-clase/:id", checkAuth, asignarClienteaClase);
 router.post("/asignar-recupero/:id", checkAuth, recuperoClase);
+router.post("/asignar-recupero-admin/:id", checkAuth, asignarRecuperoAdmin);
 
 router.get("/obtener-clases-cliente/:id", checkAuth, obtenerClasesCliente);
 

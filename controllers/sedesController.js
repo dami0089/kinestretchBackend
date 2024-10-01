@@ -173,7 +173,7 @@ const enviarMensajeClientesActivosSede = async (req, res) => {
 			for (const cliente of clientesActivos) {
 				try {
 					await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
-					await esperar(500); // Espera medio segundo antes de enviar el siguiente mensaje
+					await esperar(2000); // Espera medio segundo antes de enviar el siguiente mensaje
 				} catch (error) {
 					// Guarda el error y el cliente asociado para revisarlo más tarde
 					errores.push({ cliente, error });
@@ -351,6 +351,23 @@ const obtenerInasistencias = async (req, res) => {
 	}
 };
 
+const listadoClientesSede = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		// Filtrar los clientes por sede y estado diferente de "Inactivo"
+		const clientes = await Cliente.find({
+			sede: id,
+			isActivo: true,
+		});
+
+		res.json(clientes);
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ message: "Error al obtener los clientes" });
+	}
+};
+
 export {
 	obtenerSedesActivas,
 	nuevaSede,
@@ -365,4 +382,5 @@ export {
 	cerrarCaja,
 	obtenerAsistenciasFecha,
 	obtenerInasistencias,
+	listadoClientesSede,
 };

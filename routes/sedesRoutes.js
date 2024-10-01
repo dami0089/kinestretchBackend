@@ -16,6 +16,7 @@ import {
 	cerrarCaja,
 	obtenerAsistenciasFecha,
 	obtenerInasistencias,
+	listadoClientesSede,
 } from "../controllers/sedesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -41,5 +42,6 @@ router.get("/obtener-cajas/:id", checkAuth, obtenerCajasSede);
 router.post("/cerrar-caja/:id", checkAuth, cerrarCaja);
 router.post("/obtener-asistencias/:id", checkAuth, obtenerAsistenciasFecha);
 router.post("/obtener-inasistencias/:id", checkAuth, obtenerInasistencias);
+router.get("/listado-clientes/:id", checkAuth, listadoClientesSede);
 
 export default router;

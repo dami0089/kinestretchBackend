@@ -7,6 +7,8 @@ import clientesRouter from "./routes/clientesRoutes.js";
 import profesoresRoutes from "./routes/profesoresRoutes.js";
 import sedesRoutes from "./routes/sedesRoutes.js";
 import clasesRoutes from "./routes/clasesRoutes.js";
+import cron from "node-cron";
+import { actualizarCreditosVencidos } from "./helpers/verificarVencimientos.js";
 
 const app = express();
 app.use(express.json());
@@ -48,4 +50,14 @@ app.listen(4000, "0.0.0.0", () => {
 	console.log("Server listening on port 4000");
 });
 
-// bot();
+// Programar la tarea para ejecutarse todos los días a la medianoche hora de Argentina
+cron.schedule(
+	"0 0 * * *",
+	() => {
+		console.log("Ejecutando tarea para verificar créditos vencidos...");
+		actualizarCreditosVencidos();
+	},
+	{
+		timezone: "America/Argentina/Buenos_Aires",
+	}
+);

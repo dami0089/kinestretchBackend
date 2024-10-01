@@ -22,6 +22,7 @@ import {
 import { enviarMensaje } from "../whatsappbot.js";
 import Contable from "../models/Contable.js";
 import Feriados from "../models/Feriados.js";
+import Creditos from "../models/Creditos.js";
 
 const obtenerSedesActivas = async (req, res) => {
 	try {
@@ -355,6 +356,10 @@ const recuperoClase = async (req, res) => {
 	try {
 		const clase = await Clases.findById(idClase);
 		const cliente = await Cliente.findById(id);
+		const creditos = await Creditos.findOne({
+			cliente: id,
+			estado: "Activo",
+		}).sort({ createdAt: 1 });
 
 		if (!clase || !cliente) {
 			return res.status(404).json({ msg: "Clase o cliente no encontrado" });
@@ -409,7 +414,104 @@ const recuperoClase = async (req, res) => {
 
 		// Agregar el cliente a la lista de recupero de la clase
 		clase.recupero.push(id);
-		cliente.creditos -= 1;
+		creditos.estado = "Usado";
+
+		// Guardar los cambios en la base de datos
+		await clase.save();
+		await cliente.save();
+		await creditos.save();
+
+		const mensaje = `Hola ${
+			cliente.nombre
+		}, te informamos que tu recupero para la clase de ${
+			clase.nombreProfe
+		} el día ${clase.diaDeLaSemana} a las ${convertirHora(
+			clase.horarioInicio
+		)} hs en la sede ${clase.nombreSede} ha sido confirmado.`;
+
+		console.log("Mensaje:", mensaje);
+		await mensajeGrupaloIndividual(
+			cliente.email,
+			mensaje,
+			"Recupero Confirmado"
+		);
+		console.log("Enviado:", mensaje);
+
+		res.json(clase);
+	} catch (error) {
+		console.error(error);
+		res
+			.status(500)
+			.send("Hubo un error al intentar asignar el cliente a la clase.");
+	}
+};
+
+const asignarRecuperoAdmin = async (req, res) => {
+	const { id } = req.params;
+	const { idClase, tipo, idCredito } = req.body;
+
+	try {
+		const clase = await Clases.findById(idClase);
+		const cliente = await Cliente.findById(id);
+		const credito = await Creditos.findById(idCredito);
+
+		credito.estado = "Usado";
+		credito.uso = idClase;
+		await credito.save();
+
+		if (!clase || !cliente) {
+			return res.status(404).json({ msg: "Clase o cliente no encontrado" });
+		}
+
+		// Calcular la fecha de la próxima clase basándonos en el día de la semana de la clase
+		const hoy = new Date();
+		const diasSemana = [
+			"domingo",
+			"lunes",
+			"martes",
+			"miercoles",
+			"jueves",
+			"viernes",
+			"sabado",
+		];
+		const indiceDiaClase = diasSemana.indexOf(
+			clase.diaDeLaSemana.toLowerCase()
+		);
+		const hoyIndice = hoy.getDay();
+
+		let fechaClase = new Date();
+		fechaClase.setDate(hoy.getDate() + ((indiceDiaClase + 7 - hoyIndice) % 7));
+		fechaClase.setHours(0, 0, 0, 0); // Establecer la hora al inicio del día
+
+		// Buscar inasistencias para la clase y la fecha calculada
+		const inasistencias = await Inasistencias.find({
+			clase: idClase,
+			fechaInasistencia: {
+				$gte: fechaClase,
+				$lt: new Date(fechaClase.getTime() + 24 * 60 * 60 * 1000), // Final del día
+			},
+		});
+
+		// Verificar si hay inasistencias que liberan cupos
+		const cuposLiberados = inasistencias.length;
+
+		const cantidadAlumnos =
+			clase.clientes.length + clase.recupero.length - cuposLiberados;
+		if (cantidadAlumnos >= clase.cupo) {
+			return res.status(400).json({
+				msg: "La clase ya está llena y no se puede asignar más clientes a la misma.",
+			});
+		}
+
+		// Comprobar si el cliente ya está asignado a esa clase
+		if (clase.clientes.includes(id)) {
+			return res.status(400).json({
+				msg: "No puedes recuperar la clase en la que estás inscrito.",
+			});
+		}
+
+		// Agregar el cliente a la lista de recupero de la clase
+		clase.recupero.push(id);
 
 		// Guardar los cambios en la base de datos
 		await clase.save();
@@ -1197,7 +1299,17 @@ const cancelarClaseCliente = async (req, res) => {
 		fechaInasistencia: fechaClase.toDate(),
 	});
 
-	cliente.creditos = 1;
+	const credito = new Creditos();
+
+	credito.cliente = usuario.cliente;
+	credito.estado = "Activo";
+	credito.fechaVencimiento = moment().add(1, "months").toDate();
+
+	const creditoAlmacenado = await credito.save();
+
+	console.log(creditoAlmacenado);
+
+	// cliente.creditos.push(creditoAlmacenado._id);
 
 	const infoEmail = {
 		email: usuario.email,
@@ -1206,8 +1318,7 @@ const cancelarClaseCliente = async (req, res) => {
 
 	try {
 		await cliente.save();
-		const inasistenciaAlmacenada = await inasistencia.save();
-
+		await inasistencia.save();
 		await emailClaseCancelada(infoEmail);
 
 		res.json({ msg2: "Gracias por avisarnos!" });
@@ -1219,9 +1330,8 @@ const cancelarClaseCliente = async (req, res) => {
 
 const obtenerClasesDelMes = async (req, res) => {
 	const { id } = req.params; // ID del cliente
-	const hoy = moment.tz("America/Argentina/Buenos_Aires");
-	const inicioMes = hoy.clone().startOf("month");
-	const finMes = hoy.clone().endOf("month");
+	const hoy = moment.tz("America/Argentina/Buenos_Aires").startOf("day"); // Asegurarnos de que tomamos solo la fecha sin la hora
+	const finRango = hoy.clone().add(1.5, "months").endOf("day"); // Fin del rango en un mes y medio desde hoy
 
 	try {
 		// Obtener todas las clases en las que el cliente está registrado
@@ -1239,8 +1349,8 @@ const obtenerClasesDelMes = async (req, res) => {
 		const clasesConFechas = [];
 
 		for (
-			let fecha = inicioMes.clone();
-			fecha.isBefore(finMes);
+			let fecha = hoy.clone(); // Comienza desde hoy
+			fecha.isBefore(finRango); // Hasta el final del rango de un mes y medio
 			fecha.add(1, "day")
 		) {
 			const diaSemana = diasSemana[fecha.day()];
@@ -1250,12 +1360,11 @@ const obtenerClasesDelMes = async (req, res) => {
 
 			clasesDelDia.forEach((clase) => {
 				const fechaClase = fecha.clone();
-				if (fechaClase.isSameOrAfter(hoy, "day")) {
-					clasesConFechas.push({
-						...clase._doc,
-						fecha: fechaClase.toDate(),
-					});
-				}
+				// Agregamos solo las clases a partir de hoy
+				clasesConFechas.push({
+					...clase._doc,
+					fecha: fechaClase.toDate(),
+				});
 			});
 		}
 
@@ -1946,20 +2055,6 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 	const horaInicioClase = clase.horarioInicio;
 	console.log("Hora de inicio de la clase:", horaInicioClase);
 
-	// Si la clase es hoy, verificamos la hora actual contra la hora de inicio
-	// if (fechaClase.isSame(ahora, "day")) {
-	// 	if (
-	// 		(horaActual > horaInicioClase - 1 && horaActual < horaInicioClase) ||
-	// 		(horaActual === horaInicioClase - 1 && minutoActual >= 0) ||
-	// 		horaActual >= horaInicioClase
-	// 	) {
-	// 		return res.status(400).json({
-	// 			error:
-	// 				"No puedes cancelar la clase una hora antes o después de la hora de inicio.",
-	// 		});
-	// 	}
-	// }
-
 	// Verificar si el cliente ya ha cancelado una clase en el mes de la fecha seleccionada
 	const inicioMes = fechaClase.clone().startOf("month").toDate();
 	const finMes = fechaClase.clone().endOf("month").toDate();
@@ -1990,7 +2085,16 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 		fechaInasistencia: fechaClase.toDate(),
 	});
 
-	cliente.creditos = 1;
+	const credito = new Creditos();
+
+	credito.cliente = usuario.cliente;
+	credito.fechaVencimiento = moment().add(1, "months").toDate();
+	credito.estado = "Activo";
+	credito.tipo = "Ausencia";
+
+	await credito.save();
+
+	// cliente.creditos.push(creditoAlmacenado._id);
 
 	const infoEmail = {
 		email: usuario.email,
@@ -2058,21 +2162,6 @@ const eliminarClienteRecupero = async (req, res) => {
 		// Verificar si el cliente está tratando de cancelar dentro de una hora antes o después de la hora de inicio
 		const horaInicioClase = clase.horarioInicio;
 		console.log("Hora de inicio de la clase:", horaInicioClase);
-
-		// Si la clase es hoy, verificamos la hora actual contra la hora de inicio
-		// const hoy = moment().tz("America/Argentina/Buenos_Aires").startOf("day");
-		// if (ahora.isSame(hoy, "day")) {
-		// 	if (
-		// 		(horaActual > horaInicioClase - 1 && horaActual < horaInicioClase) ||
-		// 		(horaActual === horaInicioClase - 1 && minutoActual >= 0) ||
-		// 		horaActual >= horaInicioClase
-		// 	) {
-		// 		return res.status(400).json({
-		// 			error:
-		// 				"No puedes cancelar una clase de recupero una hora antes o después de la hora de inicio.",
-		// 		});
-		// 	}
-		// }
 
 		// Remover el cliente del arreglo de recupero
 		clase.recupero.splice(clienteIndex, 1);
@@ -2189,9 +2278,29 @@ Equipo Kinestretch
 		// Convertir saltos de línea a <br> para el HTML
 		const mensajeHtml = mensaje.replace(/\n/g, "<br>");
 
-		for (const correo of correos) {
-			await mensajeGrupaloIndividual(correo, mensajeHtml, "Próximo Feriado");
-		}
+		// Enviar mensajes en segundo plano
+		setTimeout(async () => {
+			const errores = [];
+
+			for (const correo of correos) {
+				try {
+					await mensajeGrupaloIndividual(
+						correo,
+						mensajeHtml,
+						"Próximo Feriado"
+					);
+					await esperar(2000); // Espera medio segundo antes de enviar el siguiente mensaje
+				} catch (error) {
+					// Guarda el error y el cliente asociado para revisarlo más tarde
+					errores.push({ cliente, error });
+				}
+			}
+
+			// Puedes decidir qué hacer con los errores después del bucle
+			if (errores.length > 0) {
+				console.log("Hubo errores al enviar algunos mensajes:", errores);
+			}
+		}, 0); // Ejecuta el envío en segundo plano inmediatamente
 
 		res.json({ msg: "Correo enviado correctamente" });
 	} catch (error) {
@@ -2307,13 +2416,6 @@ const cancelarClaseClienteNuevoLadoAdmin = async (req, res) => {
 	const cliente = await Cliente.findById(id);
 	const usuario = await Usuario.findOne({ cliente: id });
 
-	console.log("Clase");
-	console.log(clase);
-	console.log("Cliente");
-	console.log(cliente);
-	console.log("Usuario");
-	console.log(usuario);
-
 	if (!clase) {
 		return res.status(404).json({ error: "Clase no encontrada." });
 	}
@@ -2366,7 +2468,13 @@ const cancelarClaseClienteNuevoLadoAdmin = async (req, res) => {
 		fechaInasistencia: fechaClase.toDate(),
 	});
 
-	cliente.creditos = 1;
+	const credito = new Creditos();
+	credito.cliente = cliente._id;
+	credito.fechaVencimiento = moment().add(1, "months").toDate();
+	credito.estado = "Activo";
+	credito.tipo = "Ausencia-Admin";
+
+	await credito.save();
 
 	try {
 		await cliente.save();
@@ -2463,4 +2571,5 @@ export {
 	comunicarFeriado,
 	eliminarFeriado,
 	cancelarClaseClienteNuevoLadoAdmin,
+	asignarRecuperoAdmin,
 };

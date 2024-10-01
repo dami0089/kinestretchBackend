@@ -24,6 +24,10 @@ import {
 	registrarUsuarioBackoffice,
 	obtenerUsuariosPorRol,
 	obtenerSedesDeUsuario,
+	obtenerUsuarioDelCliente,
+	nuevoUsuarioPefilAdmin,
+	eliminarUsuarioCliente,
+	listadoTodosUsuarios,
 } from "../controllers/usuarioController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -59,5 +63,25 @@ router.post(
 router.get("/obtener-usuarios-por-rol", checkAuth, obtenerUsuariosPorRol);
 
 router.get("/obtener-sedes-de-usuario/:id", checkAuth, obtenerSedesDeUsuario);
+
+router.get(
+	"/obtener-usuario-del-cliente/:id",
+	checkAuth,
+	obtenerUsuarioDelCliente
+);
+
+router.post(
+	"/nuevo-usuario-perfil-admin/:id",
+	checkAuth,
+	nuevoUsuarioPefilAdmin
+);
+
+router.post(
+	"/eliminar-usuario-perfil-admin/:id",
+	checkAuth,
+	eliminarUsuarioCliente
+);
+
+router.get("/listado-todos-usuarios", checkAuth, listadoTodosUsuarios);
 
 export default router;

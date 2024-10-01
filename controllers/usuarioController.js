@@ -458,6 +458,68 @@ const obtenerSedesDeUsuario = async (req, res) => {
 	}
 };
 
+const obtenerUsuarioDelCliente = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		const usuario = await Usuario.find({ cliente: id });
+		res.json(usuario);
+	} catch (error) {
+		console.log(error);
+	}
+};
+
+const nuevoUsuarioPefilAdmin = async (req, res) => {
+	const { id } = req.params;
+	const { email } = req.body;
+	const cliente = await Cliente.findById(id);
+
+	const usuario = new Usuario();
+
+	usuario.cliente = cliente._id;
+	usuario.confirmado = true;
+	usuario.isActivo = true;
+	usuario.nombre = cliente.nombre;
+	usuario.apellido = cliente.apellido;
+	usuario.dni = cliente.dni;
+	usuario.celu = cliente.celu;
+	usuario.rol = "cliente";
+	usuario.password = cliente.dni;
+	usuario.email = email;
+
+	try {
+		const usuarioAlmacenado = await usuario.save();
+
+		const infoMail = {
+			email: usuarioAlmacenado.email,
+			nombre: usuarioAlmacenado.nombre,
+		};
+		await emailRegistro(infoMail);
+
+		res.json({ msg: "Usuario creado correctamente" });
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ msg: "Error al crear el usuario" });
+	}
+};
+
+const eliminarUsuarioCliente = async (req, res) => {
+	const { id } = req.params;
+
+	try {
+		await Usuario.findByIdAndDelete(id);
+		res.json({ msg: "Usuario eliminado correctamente" });
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ msg: "Error al eliminar el usuario" });
+	}
+};
+
+const listadoTodosUsuarios = async (req, res) => {
+	const usuarios = await Usuario.find();
+	res.json(usuarios);
+};
+
 export {
 	registrar,
 	autenticar,
@@ -481,4 +543,8 @@ export {
 	registrarUsuarioBackoffice,
 	obtenerUsuariosPorRol,
 	obtenerSedesDeUsuario,
+	obtenerUsuarioDelCliente,
+	nuevoUsuarioPefilAdmin,
+	eliminarUsuarioCliente,
+	listadoTodosUsuarios,
 };
