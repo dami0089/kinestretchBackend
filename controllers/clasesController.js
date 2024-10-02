@@ -1174,8 +1174,6 @@ const asistencia = async (req, res) => {
 			res.json({ msg: "Nueva asistencia creada correctamente." });
 		}
 
-		console.log("Recuperos en esa clase: ", clase.recupero);
-		console.log("Cliente: ", idCliente);
 		// Verificar si el cliente está en la lista de recuperos de la clase y eliminarlo si es necesario
 		if (clase.recupero && clase.recupero.includes(idCliente)) {
 			clase.recupero = clase.recupero.filter(
@@ -1184,6 +1182,14 @@ const asistencia = async (req, res) => {
 			console.log(clase.recupero);
 			await clase.save();
 		}
+
+		const credito = await Creditos.findOne({ uso: id, cliente: idCliente });
+
+		if (credito) {
+			credito.uso = null; // Asignar null en lugar de una cadena vacía
+			await credito.save();
+		}
+
 		cliente.asistioHoy = "Si";
 		await cliente.save();
 	} catch (error) {
@@ -1495,6 +1501,13 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 				fechaInasistencia: fechaInasistencia,
 			});
 
+			const credito = await Creditos.findOne({ uso: idClase, cliente: id });
+
+			if (credito) {
+				credito.uso = null; // Asignar null en lugar de una cadena vacía
+				await credito.save();
+			}
+
 			await nuevaInasistencia.save();
 		}
 
@@ -1620,7 +1633,11 @@ const obtenerAlumnosDeClase = async (req, res) => {
 		});
 
 		// Función para mapear la información de los clientes
-		const mapearCliente = (cliente, esRecupero = false) => ({
+		const mapearCliente = (
+			cliente,
+			esRecupero = false,
+			tipoCredito = null
+		) => ({
 			id: cliente._id,
 			nombre: cliente.nombre,
 			apellido: cliente.apellido,
@@ -1637,6 +1654,7 @@ const obtenerAlumnosDeClase = async (req, res) => {
 			importeUltimoPago: cliente.importeUltimoPago,
 			asistioHoy: cliente.asistioHoy,
 			esPrimeraClase: cliente.esPrimeraClase,
+			tipoCredito: tipoCredito, // Agregamos el tipo de crédito si corresponde
 		});
 
 		// Filtrar y mapear los clientes y recupero excluyendo los que tienen inasistencias
@@ -1644,9 +1662,22 @@ const obtenerAlumnosDeClase = async (req, res) => {
 			.filter((cliente) => !inasistenciasPorCliente.has(cliente._id.toString()))
 			.map((cliente) => mapearCliente(cliente));
 
-		const clientesRecupero = clase.recupero
-			.filter((cliente) => !inasistenciasPorCliente.has(cliente._id.toString()))
-			.map((cliente) => mapearCliente(cliente, true));
+		// Verificar los clientes de recupero y buscar si la clase está en sus créditos
+		const clientesRecupero = await Promise.all(
+			clase.recupero
+				.filter(
+					(cliente) => !inasistenciasPorCliente.has(cliente._id.toString())
+				)
+				.map(async (cliente) => {
+					const credito = await Creditos.findOne({
+						cliente: cliente._id,
+						uso: id, // Verifica si la clase está asociada al uso del crédito
+					});
+
+					const tipoCredito = credito ? credito.tipo : null; // Si hay crédito, asignamos el tipo
+					return mapearCliente(cliente, true, tipoCredito);
+				})
+		);
 
 		// Crear un objeto para evitar duplicados y combinar listas
 		const clienteMap = {};
@@ -2023,10 +2054,6 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 	const { id } = req.params;
 	const { claseId, fecha } = req.body; // Ahora recibimos la fecha a cancelar
 
-	console.log("ID del cliente:", id);
-	console.log("ID de la clase:", claseId);
-	console.log("Fecha de la clase a cancelar:", fecha);
-
 	const usuario = await Usuario.findById(id);
 	const clase = await Clases.findById(claseId);
 	const cliente = await Cliente.findById(usuario.cliente);
@@ -2035,25 +2062,17 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 		return res.status(404).json({ error: "Clase no encontrada." });
 	}
 
-	console.log("Usuario encontrado:", usuario);
-	console.log("Clase encontrada:", clase);
-	console.log("Cliente encontrado:", cliente);
-
 	const fechaClase = moment(fecha, "YYYY-MM-DD").tz(
 		"America/Argentina/Buenos_Aires"
 	);
-	console.log("Fecha de la clase a cancelar:", fechaClase);
 
 	// Verificar la hora actual en Argentina
 	const ahora = moment().tz("America/Argentina/Buenos_Aires");
 	const horaActual = ahora.hour();
 	const minutoActual = ahora.minute();
-	console.log("Hora actual en Argentina:", horaActual);
-	console.log("Minuto actual en Argentina:", minutoActual);
 
 	// Verificar si el cliente está tratando de cancelar dentro de una hora antes o después de la hora de inicio
 	const horaInicioClase = clase.horarioInicio;
-	console.log("Hora de inicio de la clase:", horaInicioClase);
 
 	// Verificar si el cliente ya ha cancelado una clase en el mes de la fecha seleccionada
 	const inicioMes = fechaClase.clone().startOf("month").toDate();
@@ -2085,10 +2104,26 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 		fechaInasistencia: fechaClase.toDate(),
 	});
 
-	const credito = new Creditos();
+	// Lógica para la fecha de vencimiento del crédito
+	let fechaVencimiento;
 
+	// Último día del mes de la fecha de cancelación
+	const finDeMes = fechaClase.clone().endOf("month");
+
+	// Si la fecha de cancelación está dentro de la última semana del mes
+	const diasHastaFinDeMes = finDeMes.diff(fechaClase, "days");
+	if (diasHastaFinDeMes < 7) {
+		// Agregar 7 días si está dentro de la última semana
+		fechaVencimiento = fechaClase.clone().add(7, "days").toDate();
+	} else {
+		// De lo contrario, la fecha de vencimiento es el último día del mes
+		fechaVencimiento = finDeMes.toDate();
+	}
+
+	// Crear el crédito con la nueva lógica de vencimiento
+	const credito = new Creditos();
 	credito.cliente = usuario.cliente;
-	credito.fechaVencimiento = moment().add(1, "months").toDate();
+	credito.fechaVencimiento = fechaVencimiento;
 	credito.estado = "Activo";
 	credito.tipo = "Ausencia";
 

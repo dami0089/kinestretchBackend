@@ -21,7 +21,7 @@ import Creditos from "../models/Creditos.js";
 
 const obtenerClientesActivos = async (req, res) => {
 	try {
-		const clientes = await Cliente.find({ isActivo: true });
+		const clientes = await Cliente.find({ isActivo: true }).sort({ _id: -1 });
 
 		res.json(clientes);
 	} catch (error) {
@@ -61,12 +61,24 @@ const obtenerUsuariosProfile = async (req, res) => {
 };
 
 const comprobarCliente = async (req, res) => {
-	const { dni } = req.body;
+	const { dni, emailCliente } = req.body;
 
 	const existeCliente = await Cliente.findOne({ dni });
+	const existeUsuario = await Usuario.findOne({ email: emailCliente });
+	const existeUsuarioConDni = await Usuario.findOne({ dni: dni });
 
 	if (existeCliente) {
 		const error = new Error("Cliente ya registrado");
+		return res.status(400).json({ msg: error.message });
+	}
+
+	if (existeUsuario) {
+		const error = new Error("El usuario ya esta registrado con este email");
+		return res.status(400).json({ msg: error.message });
+	}
+
+	if (existeUsuarioConDni) {
+		const error = new Error("El usuario ya esta registrado con este DNI");
 		return res.status(400).json({ msg: error.message });
 	}
 

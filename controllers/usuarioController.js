@@ -65,7 +65,7 @@ const editarUsuario = async (req, res) => {
 	usuario.nombre = req.body.nombre || usuario.nombre;
 	usuario.apellido = req.body.apellido || usuario.apellido;
 	usuario.dni = req.body.dni || usuario.dni;
-	usuario.email = req.body.email || usuario.email;
+	usuario.email = req.body.email ? req.body.email.toLowerCase() : usuario.email; // Convertir a minúsculas
 	usuario.celu = req.body.celu || usuario.celu;
 	usuario.plan = req.body.plan || usuario.plan;
 
@@ -125,13 +125,29 @@ const guardarUsuarioenCliente = async (cuit, id) => {
 };
 
 const autenticar = async (req, res) => {
-	// Transformamos el email a minúsculas antes de cualquier operación
-	const email = req.body.email.toLowerCase();
+	// Transformamos el email a minúsculas y eliminamos los espacios
+	const email = req.body.email.trim().toLowerCase();
 	const { password } = req.body;
 
-	// Comprobar si el usuario existe
-	const usuario = await Usuario.findOne({ email });
+	// Intentar encontrar el usuario con el email en minúsculas
+	let usuario = await Usuario.findOne({ email });
 
+	// Si no encuentra el usuario, buscarlo con la primera letra en mayúscula
+	if (!usuario) {
+		const emailConMayuscula =
+			req.body.email.trim().charAt(0).toUpperCase() +
+			req.body.email.trim().slice(1).toLowerCase();
+
+		usuario = await Usuario.findOne({ email: emailConMayuscula });
+
+		// Si encuentra el usuario, actualizar el email en minúsculas
+		if (usuario) {
+			usuario.email = email;
+			await usuario.save();
+		}
+	}
+
+	// Si el usuario sigue sin existir, devolver error
 	if (!usuario) {
 		const error = new Error("El usuario no existe");
 		return res.status(404).json({ msg: error.message });
@@ -142,9 +158,9 @@ const autenticar = async (req, res) => {
 		res.json({
 			_id: usuario._id,
 			nombre: usuario.nombre,
-			email: usuario.email, // Este email ya es el almacenado en la base de datos, no necesita transformación
+			email: usuario.email, // Este email ya es el almacenado en la base de datos
 			rol: usuario.rol,
-			sede: usuario.sedes,
+			sedes: usuario.sedes,
 			cliente: usuario.cliente,
 			token: generarJWT(usuario._id),
 			profesor: usuario.profesor,
@@ -399,7 +415,7 @@ const registrarUsuarioBackoffice = async (req, res) => {
 		const nuevoUsuario = new Usuario({
 			nombre,
 			apellido,
-			dni,
+			dni: generarId(),
 			password,
 			email,
 			celu,
@@ -473,6 +489,12 @@ const nuevoUsuarioPefilAdmin = async (req, res) => {
 	const { id } = req.params;
 	const { email } = req.body;
 	const cliente = await Cliente.findById(id);
+
+	const consultarUsuario = await Usuario.findOne({ email });
+
+	if (consultarUsuario) {
+		return res.status(400).json({ msg: "El usuario ya existe" });
+	}
 
 	const usuario = new Usuario();
 
