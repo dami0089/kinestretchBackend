@@ -882,7 +882,7 @@ export const notificacionEncuesta = async (
 	}
 };
 
-export const mensajeGrupaloIndividual = async (email, mensaje, asunto) => {
+export const mensajeGrupaloIndividual2 = async (email, mensaje, asunto) => {
 	const hemail = process.env.EMAIL;
 	const hpass = process.env.PASSWORD;
 
@@ -949,7 +949,6 @@ export const mensajeGrupaloIndividual = async (email, mensaje, asunto) => {
 				<div style="text-align: center">
 					<p style="color: #17409C;">${mensaje}</p>
 				</div>
-				
 
 				<div style="text-align: left; margin-top: 20px;">
 					<img
@@ -958,12 +957,91 @@ export const mensajeGrupaloIndividual = async (email, mensaje, asunto) => {
 						style="width: 100%; background-size: cover"
 			class="responsive-image"
 
-
 					/>
 				</div>
 
-        
 		</div>
 	</body>`,
 	});
+};
+
+export const mensajeGrupaloIndividual = async (email, mensaje, asunto) => {
+	const apiKey = process.env.API_ENVIALO_SIMPLE; // Asegúrate de definir esta variable en tu entorno
+	const url = "https://api.envialosimple.email/api/v1/mail/send"; // Endpoint de Envialo Simple
+
+	const emailBody = {
+		from: {
+			name: "Kinestretch",
+			email: "postural@kinestretch.com.ar",
+		},
+		to: email,
+		subject: `👋🏼 ${asunto}`,
+		html: `
+      <body>
+        <div style="margin: 0; padding: 0; font-family: Arial, sans-serif">
+          <style>
+            @media only screen and (max-width: 620px) {
+              .responsive-table {
+                width: 100% !important;
+              }
+              .responsive-image {
+                width: 100% !important;
+                height: auto !important;
+              }
+              .responsive-padding {
+                padding: 10px !important;
+              }
+              .responsive-text {
+                font-size: 14px !important;
+              }
+              .wrapper {
+                width: 100% !important;
+                overflow: hidden;
+                margin-top: 20px;
+              }
+            }
+          </style>
+          <div style="max-width: 620px; margin: auto; overflow: hidden; margin-top: 20px;" class="wrapper">
+            <div style="text-align: left">
+              <img src="https://www.kinestretch.com.ar/wp-content/uploads/2024/04/Asset-80@2x-8.png" class="responsive-image" style="width: 100%; background-size: cover" />
+            </div>
+            <div style="text-align: center">
+              <h1 style="color: #17409C;">${asunto}</h1>
+            </div>
+            <div style="text-align: center">
+              <p style="color: #17409C;">${mensaje}</p>
+            </div>
+            <div style="text-align: left; margin-top: 20px;">
+              <img src="https://www.kinestretch.com.ar/wp-content/uploads/2024/04/Asset-52@2x-8.png" class="responsive-image" style="width: 100%; background-size: cover" />
+            </div>
+          </div>
+        </div>
+      </body>
+    `,
+	};
+
+	const config = {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${apiKey}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(emailBody),
+	};
+
+	try {
+		const response = await fetch(url, config);
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			throw new Error(
+				`Error al enviar el correo: ${errorData.message || response.statusText}`
+			);
+		}
+
+		const result = await response.json();
+		console.log("Correo enviado:", result);
+	} catch (error) {
+		console.error("Error en el envío:", error.message);
+	}
 };

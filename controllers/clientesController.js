@@ -9,6 +9,7 @@ import {
 	emailRegistro,
 	emailRegistroNuevo,
 	mensajeGrupaloIndividual,
+	mensajeGrupaloIndividual2,
 } from "../helpers/emails.js";
 import Clases from "../models/Clases.js";
 import Contable from "../models/Contable.js";
@@ -346,7 +347,7 @@ const enviarMensajeAlCliente = async (req, res) => {
 
 	try {
 		const cliente = await Cliente.findById(id);
-		await mensajeGrupaloIndividual(cliente.email, asunto, mensaje);
+		await mensajeGrupaloIndividual2(cliente.email, asunto, mensaje);
 		res.json({ msg: "OK" });
 	} catch (error) {
 		res.status(404).json({ msg: error.message });

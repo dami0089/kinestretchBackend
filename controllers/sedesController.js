@@ -9,7 +9,10 @@ import { emailRegistro, mensajeGrupaloIndividual } from "../helpers/emails.js";
 import Contable from "../models/Contable.js";
 import Caja from "../models/Caja.js";
 import Asistencias from "../models/AsistenciasClases.js";
+
 import Inasistencias from "../models/Inasistencias.js";
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const obtenerSedesActivas = async (req, res) => {
 	try {
@@ -173,7 +176,7 @@ const enviarMensajeClientesActivosSede = async (req, res) => {
 			for (const cliente of clientesActivos) {
 				try {
 					await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
-					await esperar(2000); // Espera medio segundo antes de enviar el siguiente mensaje
+					await esperar(300);
 				} catch (error) {
 					// Guarda el error y el cliente asociado para revisarlo más tarde
 					errores.push({ cliente, error });

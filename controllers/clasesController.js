@@ -17,12 +17,14 @@ import {
 	emailProfesorClaseAsignada,
 	encuesta,
 	mensajeGrupaloIndividual,
+	mensajeGrupaloIndividual2,
 	notificacionEncuesta,
 } from "../helpers/emails.js";
 import { enviarMensaje } from "../whatsappbot.js";
 import Contable from "../models/Contable.js";
 import Feriados from "../models/Feriados.js";
 import Creditos from "../models/Creditos.js";
+import Cancelacion from "../models/ClaseCancelada.js";
 
 const obtenerSedesActivas = async (req, res) => {
 	try {
@@ -430,7 +432,7 @@ const recuperoClase = async (req, res) => {
 		)} hs en la sede ${clase.nombreSede} ha sido confirmado.`;
 
 		console.log("Mensaje:", mensaje);
-		await mensajeGrupaloIndividual(
+		await mensajeGrupaloIndividual2(
 			cliente.email,
 			mensaje,
 			"Recupero Confirmado"
@@ -526,12 +528,11 @@ const asignarRecuperoAdmin = async (req, res) => {
 		)} hs en la sede ${clase.nombreSede} ha sido confirmado.`;
 
 		console.log("Mensaje:", mensaje);
-		await mensajeGrupaloIndividual(
+		await mensajeGrupaloIndividual2(
 			cliente.email,
 			mensaje,
 			"Recupero Confirmado"
 		);
-		console.log("Enviado:", mensaje);
 
 		res.json(clase);
 	} catch (error) {
@@ -1336,12 +1337,27 @@ const cancelarClaseCliente = async (req, res) => {
 
 const obtenerClasesDelMes = async (req, res) => {
 	const { id } = req.params; // ID del cliente
-	const hoy = moment.tz("America/Argentina/Buenos_Aires").startOf("day"); // Asegurarnos de que tomamos solo la fecha sin la hora
-	const finRango = hoy.clone().add(1.5, "months").endOf("day"); // Fin del rango en un mes y medio desde hoy
+	const hoy = moment.tz("America/Argentina/Buenos_Aires").startOf("day");
+	const finMesActual = hoy.clone().endOf("month");
+	const diasRestantesDelMes = finMesActual.diff(hoy, "days");
+
+	// Determinar el fin del rango: fin del mes actual, o la primera semana del mes siguiente
+	let finRango;
+	if (diasRestantesDelMes <= 7) {
+		finRango = hoy
+			.clone()
+			.add(1, "month")
+			.startOf("month")
+			.add(7, "days")
+			.endOf("day");
+	} else {
+		finRango = finMesActual;
+	}
 
 	try {
 		// Obtener todas las clases en las que el cliente está registrado
 		const clases = await Clases.find({ clientes: id });
+
 		const diasSemana = [
 			"Domingo",
 			"Lunes",
@@ -1356,7 +1372,7 @@ const obtenerClasesDelMes = async (req, res) => {
 
 		for (
 			let fecha = hoy.clone(); // Comienza desde hoy
-			fecha.isBefore(finRango); // Hasta el final del rango de un mes y medio
+			fecha.isBefore(finRango); // Hasta el final del rango definido
 			fecha.add(1, "day")
 		) {
 			const diaSemana = diasSemana[fecha.day()];
@@ -1366,14 +1382,13 @@ const obtenerClasesDelMes = async (req, res) => {
 
 			clasesDelDia.forEach((clase) => {
 				const fechaClase = fecha.clone();
-				// Agregamos solo las clases a partir de hoy
+				// Agregamos solo las clases dentro del rango calculado
 				clasesConFechas.push({
 					...clase._doc,
 					fecha: fechaClase.toDate(),
 				});
 			});
 		}
-
 		res.json(clasesConFechas);
 	} catch (error) {
 		console.log(error);
@@ -1989,6 +2004,7 @@ const editarClase = async (req, res) => {
 		console.log(error);
 	}
 };
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const enviarMensajeClase = async (req, res) => {
 	const { id } = req.params;
@@ -2012,7 +2028,7 @@ const enviarMensajeClase = async (req, res) => {
 		for (const cliente of clientesUnicos) {
 			try {
 				await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
-				await esperar(500); // Espera medio segundo antes de enviar el siguiente mensaje
+				await esperar(300);
 			} catch (error) {
 				// Guarda el error y el cliente asociado para revisarlo más tarde
 				errores.push({ cliente, error });
@@ -2324,10 +2340,10 @@ Equipo Kinestretch
 						mensajeHtml,
 						"Próximo Feriado"
 					);
-					await esperar(2000); // Espera medio segundo antes de enviar el siguiente mensaje
+					await esperar(300); // Espera un segundo antes de enviar el siguiente mensaje
 				} catch (error) {
 					// Guarda el error y el cliente asociado para revisarlo más tarde
-					errores.push({ cliente, error });
+					errores.push({ correo, error });
 				}
 			}
 
@@ -2546,13 +2562,74 @@ const verificarUltimoDiaSemanaDelMes = async (cliente) => {
 	if (hoy.toDateString() === ultimoDiaSemana.toDateString()) {
 		const mensaje = `Hola ${cliente.nombre}! \n\nTe escribimos ya que nos gustaría saber si seguimos reservando tu lugar para el próximo mes! \nPPara confirmarlo, necesitamos que te comuniques por WhatsApp a la brevedad! \n\nEsperamos tu respuesta a la breveded \nSaludos\nEquipo Kinestretch💙`;
 		const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
-		await mensajeGrupaloIndividual(
+		await mensajeGrupaloIndividual2(
 			cliente.email,
 			mensajeConSaltos,
 			"Confirma tu lugar"
 		);
 	} else {
 		console.log("Hoy no es el último", diaSemana, "del mes");
+	}
+};
+
+const suspenderClase = async (req, res) => {
+	const { id } = req.params; // ID de la clase que vamos a suspender
+	const { motivo } = req.body; // Motivo de la suspensión
+
+	try {
+		// Buscar la clase por ID
+		const clase = await Clases.findById(id);
+		if (!clase) {
+			return res.status(404).json({ msg: "Clase no encontrada" });
+		}
+
+		// Obtener el día de la semana de la clase
+		const diaClase = clase.diaDeLaSemana; // Ejemplo: "Lunes"
+
+		// Definir los días de la semana
+		const diasSemana = [
+			"Domingo",
+			"Lunes",
+			"Martes",
+			"Miercoles",
+			"Jueves",
+			"Viernes",
+			"Sabado",
+		];
+
+		// Obtener la fecha actual en la zona horaria de Argentina
+		const hoy = moment.tz("America/Argentina/Buenos_Aires");
+		const indiceHoy = hoy.day(); // Índice del día actual (0: Domingo, 1: Lunes, etc.)
+		const indiceClase = diasSemana.indexOf(diaClase); // Índice del día de la clase
+
+		// Calcular cuántos días faltan para el próximo día de la clase
+		let diasHastaClase = indiceClase - indiceHoy;
+
+		// Si el día de la clase ya pasó esta semana, sumar 7 días para la próxima semana
+		if (diasHastaClase <= 0) {
+			diasHastaClase += 7;
+		}
+
+		// Calcular la fecha de la próxima clase
+		const fechaClase = hoy.clone().add(diasHastaClase, "days");
+
+		// Crear un nuevo registro de cancelación
+		const nuevaCancelacion = new Cancelacion({
+			fechaCancelacion: fechaClase.toDate(), // Fecha calculada de la próxima clase
+			motivo: motivo || "Motivo no especificado",
+			clase: [id], // Pasamos el ID de la clase como un array, preparándonos para admitir varias clases en el futuro
+		});
+
+		// Guardar la cancelación en la base de datos
+		await nuevaCancelacion.save();
+
+		return res.status(200).json({
+			msg: "La clase ha sido cancelada con éxito",
+			cancelacion: nuevaCancelacion,
+		});
+	} catch (error) {
+		console.error(error);
+		return res.status(500).json({ msg: "Hubo un error al cancelar la clase" });
 	}
 };
 
@@ -2607,4 +2684,5 @@ export {
 	eliminarFeriado,
 	cancelarClaseClienteNuevoLadoAdmin,
 	asignarRecuperoAdmin,
+	suspenderClase,
 };
