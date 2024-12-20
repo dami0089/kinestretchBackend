@@ -365,13 +365,13 @@ const registrarPago = async (req, res) => {
 
 	try {
 		const pago = new Contable();
-
 		pago.cliente = id;
 		pago.creador = usuario;
 		pago.importe = importe;
 		pago.medio = medio;
 		pago.sede = cliente.sede;
 		pago.comentario = comentario;
+		pago.fechaPago = fechaPago;
 		pago.nombreCliente = cliente.nombre + " " + cliente.apellido;
 		cliente.importeUltimoPago = importe;
 		cliente.fechaUltimoPago = fechaPago;
@@ -906,7 +906,7 @@ const obtenerClientesInactivosPorSede = async (req, res) => {
 const obtenerClientesActivosSinClases = async (req, res) => {
 	try {
 		const clientes = await Cliente.find({
-			isActivo: true,
+			// isActivo: true,
 			clases: { $size: 0 },
 		});
 		console.log(clientes);
@@ -915,6 +915,74 @@ const obtenerClientesActivosSinClases = async (req, res) => {
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Error al obtener los clientes");
+	}
+};
+
+const desactivarClientesSinClases = async (req, res) => {
+	try {
+		// Buscamos clientes activos que no tengan clases asignadas
+		const clientes = await Cliente.find({
+			isActivo: true,
+			clases: { $size: 0 }, // Clientes sin clases
+		});
+
+		if (clientes.length === 0) {
+			return res.json({ msg: "No hay clientes activos sin clases asignadas." });
+		}
+
+		// Recorremos los clientes y los desactivamos
+		for (const cliente of clientes) {
+			cliente.isActivo = false;
+			await cliente.save();
+		}
+
+		res.json({
+			msg: "Se desactivaron los clientes que no tienen clases asignadas.",
+			clientesDesactivados: clientes.map((c) => ({
+				id: c._id,
+				nombre: c.nombre,
+				email: c.email,
+			})),
+		});
+	} catch (error) {
+		console.error("Error al desactivar clientes:", error.message);
+		res.status(500).json({ msg: "Error al desactivar los clientes." });
+	}
+};
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const comunicarClientesInactivos = async (req, res) => {
+	const { mensaje, asunto } = req.body;
+
+	try {
+		// Encuentra la sede por ID
+		const clientes = await Cliente.find({
+			isActivo: false,
+		});
+
+		// Enviar mensajes en segundo plano
+		setTimeout(async () => {
+			const errores = [];
+
+			for (const cliente of clientes) {
+				try {
+					await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
+					await esperar(300);
+				} catch (error) {
+					// Guarda el error y el cliente asociado para revisarlo más tarde
+					errores.push({ cliente, error });
+				}
+			}
+
+			// Puedes decidir qué hacer con los errores después del bucle
+			if (errores.length > 0) {
+				console.log("Hubo errores al enviar algunos mensajes:", errores);
+			}
+		}, 0); // Ejecuta el envío en segundo plano inmediatamente
+
+		res.json({ msg: "Mensajes en cola para ser enviados" });
+	} catch (error) {
+		res.status(500).json({ msg: error.message });
 	}
 };
 
@@ -954,4 +1022,6 @@ export {
 	obtenerHistorialCreditos,
 	obtenerClientesActivosSinClases,
 	obtenerClientesInactivosPorSede,
+	desactivarClientesSinClases,
+	comunicarClientesInactivos,
 };

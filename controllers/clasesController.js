@@ -820,11 +820,10 @@ const obtenerClasesOrdenadas = async (req, res) => {
 			},
 		});
 
-		// Si la fecha coincide con un feriado, devolver un array vacío
 		if (feriado) {
 			return res.json([
 				{ _id: 1, nombreProfe: "FERIADO", horarioInicio: "FERIADO" },
-			]); // Devuelve un array vacío
+			]);
 		}
 
 		// Buscar clases para el día especificado
@@ -833,6 +832,20 @@ const obtenerClasesOrdenadas = async (req, res) => {
 			isFeriado: false,
 			diaDeLaSemana: dia,
 		}).populate("clientes recupero");
+
+		// Obtener cancelaciones para la fecha del día solicitado
+		const cancelaciones = await Cancelacion.find({
+			fechaCancelacion: {
+				$gte: fechaDelDiaSolicitado,
+				$lt: new Date(fechaDelDiaSolicitado.getTime() + 24 * 60 * 60 * 1000),
+			},
+		});
+
+		// Crear un mapa de cancelaciones por clase
+		const cancelacionesPorClase = new Map();
+		cancelaciones.forEach((cancelacion) => {
+			cancelacionesPorClase.set(cancelacion.clase.toString(), true);
+		});
 
 		// Obtener inasistencias para la fecha del día solicitado
 		const inasistencias = await Inasistencias.find({
@@ -876,12 +889,13 @@ const obtenerClasesOrdenadas = async (req, res) => {
 			return {
 				...clase.toObject(),
 				disponibilidad,
+				cancelada: cancelacionesPorClase.has(clase._id.toString()), // Agrego el campo cancelada
 			};
 		});
 
 		// Filtrar las clases para asegurarse de que hay disponibilidad
 		const clasesDisponibles = clasesConDisponibilidad.filter(
-			(clase) => clase.disponibilidad > 0
+			(clase) => clase.disponibilidad > 0 || clase.cancelada
 		);
 
 		// Ordenar las clases por hora de inicio
@@ -1048,8 +1062,8 @@ const cancelarClase = async (req, res) => {
 		diasHastaClase += 7;
 	}
 
-	let fechaClase = hoy.clone().add(diasHastaClase, "days");
-
+	// Calcular la fecha de la clase y asegurar que el tiempo sea a medianoche
+	let fechaClase = hoy.clone().add(diasHastaClase, "days").startOf("day");
 	// Verificar si el cliente ya ha cancelado una clase en el mes actual
 	const inicioMes = hoy.clone().startOf("month").toDate();
 	const finMes = hoy.clone().endOf("month").toDate();
@@ -1282,6 +1296,7 @@ const cancelarClaseCliente = async (req, res) => {
 
 	const inasistenciaExistente = await Inasistencias.find({
 		cliente: usuario.cliente,
+		canceloCliente: true,
 		fechaInasistencia: { $gte: inicioMes, $lte: finMes },
 	});
 
@@ -1290,6 +1305,7 @@ const cancelarClaseCliente = async (req, res) => {
 			cliente: usuario.cliente,
 			clase: claseId,
 			fechaInasistencia: fechaClase.toDate(),
+			canceloCliente: true,
 		});
 
 		await inasistencia.save();
@@ -1358,6 +1374,25 @@ const obtenerClasesDelMes = async (req, res) => {
 		// Obtener todas las clases en las que el cliente está registrado
 		const clases = await Clases.find({ clientes: id });
 
+		// Obtenemos todas las cancelaciones relacionadas con las clases del cliente
+		const cancelaciones = await Cancelacion.find({
+			clase: { $in: clases.map((clase) => clase._id) },
+			fechaCancelacion: {
+				$gte: hoy.toDate(),
+				$lte: finRango.toDate(),
+			},
+		});
+
+		// Mapeamos las fechas canceladas por clase para compararlas fácilmente
+		const cancelacionesPorClase = cancelaciones.reduce((acc, cancelacion) => {
+			acc[cancelacion.clase.toString()] =
+				acc[cancelacion.clase.toString()] || [];
+			acc[cancelacion.clase.toString()].push(
+				cancelacion.fechaCancelacion.toISOString()
+			);
+			return acc;
+		}, {});
+
 		const diasSemana = [
 			"Domingo",
 			"Lunes",
@@ -1382,13 +1417,19 @@ const obtenerClasesDelMes = async (req, res) => {
 
 			clasesDelDia.forEach((clase) => {
 				const fechaClase = fecha.clone();
-				// Agregamos solo las clases dentro del rango calculado
+				const esCancelada = cancelacionesPorClase[
+					clase._id.toString()
+				]?.includes(fechaClase.toISOString());
+
+				// Agregamos la clase con la fecha correspondiente, marcando si está cancelada
 				clasesConFechas.push({
 					...clase._doc,
 					fecha: fechaClase.toDate(),
+					cancelada: esCancelada || false,
 				});
 			});
 		}
+
 		res.json(clasesConFechas);
 	} catch (error) {
 		console.log(error);
@@ -1713,7 +1754,7 @@ const obtenerAlumnosDeClase = async (req, res) => {
 		// Obtener el último pago de cada alumno
 		const pagosPromises = alumnos.map(async (alumno) => {
 			const ultimoPago = await Contable.findOne({ cliente: alumno.id }).sort({
-				fechaPago: -1,
+				_id: -1,
 			});
 			return {
 				...alumno,
@@ -2096,6 +2137,7 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 
 	const inasistenciaExistente = await Inasistencias.find({
 		cliente: usuario.cliente,
+		canceloCliente: true,
 		fechaInasistencia: { $gte: inicioMes, $lte: finMes },
 	});
 
@@ -2104,6 +2146,7 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 			cliente: usuario.cliente,
 			clase: claseId,
 			fechaInasistencia: fechaClase.toDate(),
+			canceloCliente: true,
 		});
 
 		await inasistencia.save();
@@ -2118,6 +2161,7 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 		cliente: usuario.cliente,
 		clase: claseId,
 		fechaInasistencia: fechaClase.toDate(),
+		canceloCliente: true,
 	});
 
 	// Lógica para la fecha de vencimiento del crédito
@@ -2246,6 +2290,8 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 		})
 			.populate("clase")
 			.lean();
+
+		console.log(inasistencias);
 
 		// Formatear las asistencias
 		const asistenciasFormateadas = asistencias.map((asistencia) => ({
@@ -2633,6 +2679,163 @@ const suspenderClase = async (req, res) => {
 	}
 };
 
+const cancelarClaseGeneral = async (req, res) => {
+	const { id } = req.params; // ID de la clase
+	const { fecha, motivo } = req.body; // Fecha y motivo de la cancelación
+
+	try {
+		// Buscamos la clase
+		const clase = await Clases.findById(id)
+			.populate("clientes")
+			.populate("recupero");
+
+		if (!clase) {
+			return res.status(404).json({ error: "Clase no encontrada." });
+		}
+
+		// Creamos la fecha de vencimiento: 30 días desde la fecha de cancelación
+		const fechaVencimiento = moment(fecha)
+			.tz("America/Argentina/Buenos_Aires")
+			.add(30, "days")
+			.toDate();
+
+		// Unificamos los clientes y recuperos en un solo array
+		const clientesTotales = [...clase.clientes, ...clase.recupero];
+
+		// Creamos una nueva cancelación
+		const nuevaCancelacion = new Cancelacion({
+			fechaCancelacion: moment(fecha)
+				.tz("America/Argentina/Buenos_Aires")
+				.toDate(),
+			motivo: motivo || "Cancelación general de clase", // Si no hay motivo, usamos un default
+			clase: clase._id,
+		});
+
+		await nuevaCancelacion.save();
+
+		// Actualizamos la clase agregando la fecha de cancelación
+		clase.diasQueSeCancelo.push(fecha);
+		await clase.save();
+
+		if (clientesTotales.length > 0) {
+			// Iteramos por cada cliente para asignarle un crédito
+			for (const cliente of clientesTotales) {
+				console.log(cliente);
+
+				const credito = new Creditos({
+					cliente: cliente._id,
+					fechaVencimiento: fechaVencimiento,
+					tipo: "Cancelación de Clase",
+					estado: "Activo",
+				});
+
+				await credito.save();
+			}
+
+			// Enviamos un email a todos los clientes de la clase
+			const asunto = "🚨 Aviso Importante: Cancelación de Clase";
+			const mensaje = `Hola, te informamos que la clase programada para el día ${moment(
+				fecha
+			).format("DD/MM/YYYY")} ha sido suspendida. Disculpe las molestias.
+		} ¡Gracias por tu comprensión!`;
+			// Enviar correo a cada cliente
+
+			for (const cliente of clientesTotales) {
+				console.log(cliente);
+
+				await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
+			}
+		}
+
+		res.json({
+			msg: "Se canceló la clase, se creó el registro de cancelación, se asignaron créditos y se notificó a los clientes.",
+			cancelacion: nuevaCancelacion,
+		});
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({ error: "Hubo un problema al cancelar la clase." });
+	}
+};
+
+const obtenerClasesDelMesPorClase = async (req, res) => {
+	const { id } = req.params;
+	const hoy = moment.tz("America/Argentina/Buenos_Aires").startOf("day");
+	const finMesActual = hoy.clone().endOf("month");
+	const diasRestantesDelMes = finMesActual.diff(hoy, "days");
+
+	let finRango;
+	if (diasRestantesDelMes <= 7) {
+		finRango = hoy
+			.clone()
+			.add(1, "month")
+			.startOf("month")
+			.add(7, "days")
+			.endOf("day");
+	} else {
+		finRango = finMesActual;
+	}
+
+	try {
+		const clase = await Clases.findById(id);
+
+		if (!clase) {
+			return res.status(404).json({ error: "Clase no encontrada." });
+		}
+
+		const diasSemana = [
+			"Domingo",
+			"Lunes",
+			"Martes",
+			"Miercoles",
+			"Jueves",
+			"Viernes",
+			"Sabado",
+		];
+
+		const clasesConFechas = [];
+
+		// Obtenemos las cancelaciones de esta clase
+		const cancelaciones = await Cancelacion.find({
+			clase: id,
+			fechaCancelacion: {
+				$gte: hoy.toDate(),
+				$lte: finRango.toDate(),
+			},
+		});
+
+		// Mapeamos las fechas canceladas para comparación
+		const fechasCanceladas = cancelaciones.map((c) =>
+			c.fechaCancelacion.toISOString()
+		);
+
+		for (
+			let fecha = hoy.clone(); // Comienza desde hoy
+			fecha.isBefore(finRango); // Hasta el final del rango definido
+			fecha.add(1, "day")
+		) {
+			const diaSemana = diasSemana[fecha.day()]; // Obtener el día de la semana
+
+			// Verificar si el día coincide con el `diaDeLaSemana` de la clase
+			if (clase.diaDeLaSemana === diaSemana) {
+				const fechaClase = fecha.clone();
+				const esCancelada = fechasCanceladas.includes(fechaClase.toISOString());
+
+				// Agregamos la clase con la fecha correspondiente, marcando si está cancelada
+				clasesConFechas.push({
+					...clase._doc,
+					fecha: fechaClase.toDate(),
+					cancelada: esCancelada,
+				});
+			}
+		}
+
+		res.json(clasesConFechas);
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ error: "Error al obtener las clases del mes." });
+	}
+};
+
 export {
 	obtenerSedesActivas,
 	nuevaClase,
@@ -2685,4 +2888,6 @@ export {
 	cancelarClaseClienteNuevoLadoAdmin,
 	asignarRecuperoAdmin,
 	suspenderClase,
+	cancelarClaseGeneral,
+	obtenerClasesDelMesPorClase,
 };

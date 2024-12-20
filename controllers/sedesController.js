@@ -9,7 +9,6 @@ import { emailRegistro, mensajeGrupaloIndividual } from "../helpers/emails.js";
 import Contable from "../models/Contable.js";
 import Caja from "../models/Caja.js";
 import Asistencias from "../models/AsistenciasClases.js";
-
 import Inasistencias from "../models/Inasistencias.js";
 
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -266,36 +265,42 @@ const cerrarCaja = async (req, res) => {
 
 	res.json(caja);
 };
-
 const obtenerAsistenciasFecha = async (req, res) => {
-	const { id } = req.params; // id de la sede
+	const { id } = req.params;
 	const { fecha } = req.body;
 
-	console.log("body", req.body);
-	console.log("Params", req.params);
-
 	try {
-		// Buscar asistencias y popular clase y clientes
+		const fechaInicio = new Date(fecha);
+		fechaInicio.setUTCHours(0, 0, 0, 0); // Inicio del día en UTC
+
+		const fechaFin = new Date(fecha);
+		fechaFin.setUTCHours(23, 59, 59, 999); // Fin del día en UTC
+
+		console.log("Fecha recibida:", fecha);
+		console.log("Inicio del día (UTC):", fechaInicio);
+		console.log("Fin del día (UTC):", fechaFin);
+
 		const asistencias = await Asistencias.find({
 			fechaClase: {
-				$gte: new Date(fecha).setHours(0, 0, 0, 0),
-				$lt: new Date(fecha).setHours(23, 59, 59, 999),
+				$gte: fechaInicio,
+				$lt: fechaFin, // Incluye el final del día
 			},
 		})
 			.sort({ _id: -1 })
 			.populate({
 				path: "clase",
-				populate: {
-					path: "sede", // Popula la información de la sede dentro de clase
-				},
+				populate: { path: "sede" },
 			})
 			.populate("clientes");
 
-		// Filtrar asistencias por la sede proporcionada
+		// Filtrar por sede, validando que clase y sede existan
 		const asistenciasFiltradas = asistencias.filter(
-			(asistencia) => asistencia.clase.sede._id.toString() === id
+			(asistencia) =>
+				asistencia.clase &&
+				asistencia.clase.sede &&
+				asistencia.clase.sede._id.toString() === id
 		);
-		console.log(asistenciasFiltradas);
+
 		res.json(asistenciasFiltradas);
 	} catch (error) {
 		console.error("Error al obtener las asistencias:", error);
@@ -304,29 +309,26 @@ const obtenerAsistenciasFecha = async (req, res) => {
 };
 
 const obtenerInasistencias = async (req, res) => {
-	const { id } = req.params; // id de la sede
+	const { id } = req.params; // ID de la sede
 	const { fecha } = req.body;
 
 	console.log("Fecha recibida:", fecha);
 
 	try {
-		// Convertir la fecha recibida a formato YYYY-MM-DD
-		const fechaPartes = fecha.split("-");
-		const fechaConvertida = `${fechaPartes[0]}-${fechaPartes[1]}-${fechaPartes[2]}`;
+		const fechaInicio = new Date(fecha);
+		fechaInicio.setUTCHours(0, 0, 0, 0); // Inicio del día en UTC
 
-		// Crear la fecha de inicio y fin basadas en la fecha convertida
-		const fechaInicio = new Date(fechaConvertida);
-		const fechaFin = new Date(fechaConvertida);
-		fechaFin.setHours(23, 59, 59, 999);
+		const fechaFin = new Date(fecha);
+		fechaFin.setUTCHours(23, 59, 59, 999); // Fin del día en UTC
 
-		console.log("Fecha Inicio ajustada:", fechaInicio);
-		console.log("Fecha Fin ajustada:", fechaFin);
+		console.log("Fecha Inicio ajustada (UTC):", fechaInicio);
+		console.log("Fecha Fin ajustada (UTC):", fechaFin);
 
 		// Buscar inasistencias dentro del rango de fechas
 		const inasist = await Inasistencias.find({
 			fechaInasistencia: {
 				$gte: fechaInicio,
-				$lte: fechaFin, // Usar $lte en lugar de $lt para incluir el fin del día
+				$lt: fechaFin, // Incluye todo el día
 			},
 		})
 			.sort({ _id: -1 })
@@ -340,16 +342,19 @@ const obtenerInasistencias = async (req, res) => {
 
 		console.log("Inasistencias encontradas sin filtrar:", inasist);
 
-		// Filtrar asistencias por la sede proporcionada
+		// Filtrar asistencias por la sede proporcionada con validación
 		const inasistenciasFiltradas = inasist.filter(
-			(inasistencia) => inasistencia.clase.sede._id.toString() === id
+			(inasistencia) =>
+				inasistencia.clase &&
+				inasistencia.clase.sede &&
+				inasistencia.clase.sede._id.toString() === id
 		);
 
 		console.log("Inasistencias encontradas:", inasistenciasFiltradas);
 
 		res.json(inasistenciasFiltradas);
 	} catch (error) {
-		console.error("Error al obtener las asistencias:", error);
+		console.error("Error al obtener las inasistencias:", error);
 		res.status(500).send("Error al obtener los datos");
 	}
 };

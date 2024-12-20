@@ -58,6 +58,11 @@ const clasesSchema = mongoose.Schema(
 		cupo: {
 			type: Number,
 		},
+		diasQueSeCancelo: [
+			{
+				type: Date,
+			},
+		],
 	},
 	{
 		timestaps: true,

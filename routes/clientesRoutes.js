@@ -37,6 +37,8 @@ import {
 	obtenerHistorialCreditos,
 	obtenerClientesActivosSinClases,
 	obtenerClientesInactivosPorSede,
+	desactivarClientesSinClases,
+	comunicarClientesInactivos,
 } from "../controllers/clientesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -64,6 +66,12 @@ router.get("/pagos/:id", checkAuth, obtenerPagosCliente);
 router.get("/buscar-prueba/:id", checkAuth, obtenerUsuariosProfile);
 
 router.put("/desactivar-activar/:id", checkAuth, desactivarCliente);
+
+router.post(
+	"/desactivar-clientes-sin-clases",
+	checkAuth,
+	desactivarClientesSinClases
+);
 
 router.post("/comprobar", checkAuth, comprobarCliente);
 router.post("/desactivar/:id", checkAuth, desactivarCliente);
@@ -112,5 +120,7 @@ router.get(
 );
 
 router.get("/clientes-sin-clases", checkAuth, obtenerClientesActivosSinClases);
+
+router.post("/comunicar-inactivos", checkAuth, comunicarClientesInactivos);
 
 export default router;

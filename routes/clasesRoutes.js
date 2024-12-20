@@ -53,6 +53,8 @@ import {
 	cancelarClaseClienteNuevoLadoAdmin,
 	asignarRecuperoAdmin,
 	suspenderClase,
+	cancelarClaseGeneral,
+	obtenerClasesDelMesPorClase,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -164,6 +166,7 @@ router.post(
 	checkAuth,
 	cancelarClaseClienteNuevo
 );
+router.post("/cancelar-clase-general/:id", checkAuth, cancelarClaseGeneral);
 
 router.post(
 	"/cancelar-clase-cliente-nuevo-lado-admin/:id",
@@ -188,6 +191,12 @@ router.delete("/eliminar-clase/:id", checkAuth, eliminarClase);
 router.post("/encuesta-recibida/:id", encuestaRecibida);
 
 router.get("/obtener-clases-mes/:id", checkAuth, obtenerClasesDelMes);
+
+router.get(
+	"/obtener-clases-mes-por-clase/:id",
+	checkAuth,
+	obtenerClasesDelMesPorClase
+);
 
 router.post(
 	"/eliminar-cliente-recupero/:id",

@@ -1,23 +1,27 @@
 import mongoose from "mongoose";
 
 const inasistenciasSchema = mongoose.Schema(
-  {
-    cliente: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Cliente",
-    },
-    clase: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Clases",
-    },
-    fechaInasistencia: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-  {
-    timestamps: true,
-  }
+	{
+		cliente: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Cliente",
+		},
+		clase: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Clases",
+		},
+		fechaInasistencia: {
+			type: Date,
+			default: Date.now,
+		},
+		canceloCliente: {
+			type: Boolean,
+			default: false,
+		},
+	},
+	{
+		timestamps: true,
+	}
 );
 
 const Inasistencias = mongoose.model("Inasistencias", inasistenciasSchema);
