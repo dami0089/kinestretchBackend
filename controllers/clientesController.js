@@ -906,7 +906,7 @@ const obtenerClientesInactivosPorSede = async (req, res) => {
 const obtenerClientesActivosSinClases = async (req, res) => {
 	try {
 		const clientes = await Cliente.find({
-			// isActivo: true,
+			isActivo: true,
 			clases: { $size: 0 },
 		});
 		console.log(clientes);
@@ -922,9 +922,9 @@ const desactivarClientesSinClases = async (req, res) => {
 	try {
 		// Buscamos clientes activos que no tengan clases asignadas
 		const clientes = await Cliente.find({
-			isActivo: true,
-			clases: { $size: 0 }, // Clientes sin clases
+			$or: [{ clases: { $exists: false } }, { clases: { $size: 0 } }],
 		});
+		console.log(clientes);
 
 		if (clientes.length === 0) {
 			return res.json({ msg: "No hay clientes activos sin clases asignadas." });
@@ -938,11 +938,6 @@ const desactivarClientesSinClases = async (req, res) => {
 
 		res.json({
 			msg: "Se desactivaron los clientes que no tienen clases asignadas.",
-			clientesDesactivados: clientes.map((c) => ({
-				id: c._id,
-				nombre: c.nombre,
-				email: c.email,
-			})),
 		});
 	} catch (error) {
 		console.error("Error al desactivar clientes:", error.message);

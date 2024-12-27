@@ -2693,12 +2693,6 @@ const cancelarClaseGeneral = async (req, res) => {
 			return res.status(404).json({ error: "Clase no encontrada." });
 		}
 
-		// Creamos la fecha de vencimiento: 30 días desde la fecha de cancelación
-		const fechaVencimiento = moment(fecha)
-			.tz("America/Argentina/Buenos_Aires")
-			.add(30, "days")
-			.toDate();
-
 		// Unificamos los clientes y recuperos en un solo array
 		const clientesTotales = [...clase.clientes, ...clase.recupero];
 
@@ -2718,20 +2712,6 @@ const cancelarClaseGeneral = async (req, res) => {
 		await clase.save();
 
 		if (clientesTotales.length > 0) {
-			// Iteramos por cada cliente para asignarle un crédito
-			for (const cliente of clientesTotales) {
-				console.log(cliente);
-
-				const credito = new Creditos({
-					cliente: cliente._id,
-					fechaVencimiento: fechaVencimiento,
-					tipo: "Cancelación de Clase",
-					estado: "Activo",
-				});
-
-				await credito.save();
-			}
-
 			// Enviamos un email a todos los clientes de la clase
 			const asunto = "🚨 Aviso Importante: Cancelación de Clase";
 			const mensaje = `Hola, te informamos que la clase programada para el día ${moment(
@@ -2741,20 +2721,48 @@ const cancelarClaseGeneral = async (req, res) => {
 			// Enviar correo a cada cliente
 
 			for (const cliente of clientesTotales) {
-				console.log(cliente);
-
-				await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
+				// await mensajeGrupaloIndividual(cliente.email, mensaje, asunto);
 			}
 		}
 
 		res.json({
-			msg: "Se canceló la clase, se creó el registro de cancelación, se asignaron créditos y se notificó a los clientes.",
-			cancelacion: nuevaCancelacion,
+			msg: "Se cancelo la clase con exito, te gustaria asignarle un credito a todos los clientes?",
+			clientes: clientesTotales,
 		});
 	} catch (error) {
 		console.error(error);
 		res.status(500).json({ error: "Hubo un problema al cancelar la clase." });
 	}
+};
+
+const asignarCreditosClaseCancelacion = async (req, res) => {
+	const { clientes, fecha } = req.body;
+	console.log(clientes);
+
+	// Creamos la fecha de vencimiento: 30 días desde la fecha de cancelación
+	const fechaVencimiento = moment(fecha)
+		.tz("America/Argentina/Buenos_Aires")
+		.add(30, "days")
+		.toDate();
+
+	if (clientes.length > 0) {
+		// Iteramos por cada cliente para asignarle un crédito
+		for (const cliente of clientes) {
+			const credito = new Creditos({
+				cliente: cliente._id,
+				fechaVencimiento: fechaVencimiento,
+				tipo: "Cancelación de Clase",
+				estado: "Activo",
+			});
+			console.log(credito);
+
+			await credito.save();
+		}
+	}
+
+	res.json({
+		msg: "Se asignaron los creditos a los clientes de la clase cancelada",
+	});
 };
 
 const obtenerClasesDelMesPorClase = async (req, res) => {
@@ -2890,4 +2898,5 @@ export {
 	suspenderClase,
 	cancelarClaseGeneral,
 	obtenerClasesDelMesPorClase,
+	asignarCreditosClaseCancelacion,
 };

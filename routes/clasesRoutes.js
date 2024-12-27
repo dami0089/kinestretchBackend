@@ -55,6 +55,7 @@ import {
 	suspenderClase,
 	cancelarClaseGeneral,
 	obtenerClasesDelMesPorClase,
+	asignarCreditosClaseCancelacion,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -167,6 +168,12 @@ router.post(
 	cancelarClaseClienteNuevo
 );
 router.post("/cancelar-clase-general/:id", checkAuth, cancelarClaseGeneral);
+
+router.post(
+	"/asignar-creditos-clase-cancelada",
+	checkAuth,
+	asignarCreditosClaseCancelacion
+);
 
 router.post(
 	"/cancelar-clase-cliente-nuevo-lado-admin/:id",
