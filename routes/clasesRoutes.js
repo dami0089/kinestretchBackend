@@ -56,6 +56,7 @@ import {
 	cancelarClaseGeneral,
 	obtenerClasesDelMesPorClase,
 	asignarCreditosClaseCancelacion,
+	eliminarInasistencia,
 } from "../controllers/clasesController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -222,5 +223,7 @@ router.get("/obtener-feriados", checkAuth, obtenerFeriados);
 router.post("/comunicar-feriado", checkAuth, comunicarFeriado);
 router.post("/eliminar-feriado/:id", checkAuth, eliminarFeriado);
 router.post("/suspender-clase/:id", checkAuth, suspenderClase);
+
+router.post("/eliminar-inasistencia/:id", checkAuth, eliminarInasistencia);
 
 export default router;

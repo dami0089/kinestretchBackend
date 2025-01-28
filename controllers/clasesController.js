@@ -2259,6 +2259,7 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 			),
 			diaClase: asistencia.clase.diaDeLaSemana,
 			tipo: "asistencia",
+			_id: asistencia._id,
 		}));
 
 		// Formatear las inasistencias
@@ -2269,6 +2270,7 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 			).toFormat("dd/MM/yyyy"),
 			diaClase: inasistencia.clase.diaDeLaSemana,
 			tipo: "inasistencia",
+			_id: inasistencia._id,
 		}));
 
 		// Combinar asistencias e inasistencias en un solo array
@@ -2287,6 +2289,44 @@ const obtenerRegistrosAsistenciaCliente = async (req, res) => {
 		console.error(error);
 		res.status(500).json({
 			message: "Error al obtener asistencias e inasistencias del cliente",
+		});
+	}
+};
+
+const eliminarInasistencia = async (req, res) => {
+	const { id } = req.params; // ID de la inasistencia a eliminar
+
+	try {
+		// Buscar la inasistencia por ID
+		const inasistencia = await Inasistencias.findById(id);
+
+		if (!inasistencia) {
+			return res.status(404).json({ msg: "Inasistencia no encontrada" });
+		}
+
+		// Verificar que la fecha de la inasistencia sea posterior a la fecha actual
+		const fechaActual = DateTime.now().setZone(
+			"America/Argentina/Buenos_Aires"
+		);
+		const fechaInasistencia = DateTime.fromJSDate(
+			inasistencia.fechaInasistencia
+		);
+
+		if (fechaInasistencia <= fechaActual) {
+			return res.status(400).json({
+				msg: "No se puede eliminar una inasistencia pasada o en curso",
+			});
+		}
+
+		// Eliminar la inasistencia
+		await Inasistencias.findByIdAndDelete(id);
+
+		// Enviar respuesta de éxito
+		res.json({ msg: "Inasistencia eliminada correctamente" });
+	} catch (error) {
+		console.error(error);
+		res.status(500).json({
+			msg: "Error al eliminar la inasistencia",
 		});
 	}
 };
@@ -2857,4 +2897,5 @@ export {
 	cancelarClaseGeneral,
 	obtenerClasesDelMesPorClase,
 	asignarCreditosClaseCancelacion,
+	eliminarInasistencia,
 };
