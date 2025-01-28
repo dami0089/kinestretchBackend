@@ -516,7 +516,7 @@ const nuevoUsuarioPefilAdmin = async (req, res) => {
 			email: usuarioAlmacenado.email,
 			nombre: usuarioAlmacenado.nombre,
 		};
-		await emailRegistro(infoMail);
+		await emailRegistroNuevo(infoMail);
 
 		res.json({ msg: "Usuario creado correctamente" });
 	} catch (error) {
@@ -540,6 +540,75 @@ const eliminarUsuarioCliente = async (req, res) => {
 const listadoTodosUsuarios = async (req, res) => {
 	const usuarios = await Usuario.find();
 	res.json(usuarios);
+};
+
+const cambiarPassApp = async (req, res) => {
+	const { password } = req.body;
+	console.log(req.body);
+
+	const { id } = req.params;
+
+	const usuario = await Usuario.findById(id);
+
+	if (usuario) {
+		usuario.password = password;
+		console.log(usuario);
+
+		try {
+			await usuario.save();
+			res.json({ msg: "Password modificado correctamente" });
+		} catch (error) {
+			console.log(error);
+		}
+	} else {
+		const error = new Error("Token no valido");
+		return res.status(404).json({ msg: error.message });
+	}
+};
+
+const actualizarEmail = async (req, res) => {
+	const { id } = req.params;
+	const { email } = req.body;
+
+	const usuario = await Usuario.findById(id);
+
+	if (!usuario) {
+		const error = new Error("Usuario no encontrado");
+		return res.status(404).json({ msg: error.message });
+	}
+
+	usuario.email = email || usuario.email;
+
+	try {
+		const usuarioAlmacenado = await usuario.save();
+		res.json(usuarioAlmacenado);
+	} catch (error) {
+		console.log(error);
+	}
+};
+
+const actualizarNombreYApellido = async (req, res) => {
+	const { id } = req.params;
+	const { nombre, apellido } = req.body;
+
+	console.log(req.body);
+
+	const usuario = await Usuario.findById(id);
+
+	if (!usuario) {
+		const error = new Error("Usuario no encontrado");
+		return res.status(404).json({ msg: error.message });
+	}
+
+	usuario.nombre = nombre || usuario.nombre;
+	usuario.apellido = apellido || usuario.apellido;
+
+	try {
+		const usuarioAlmacenado = await usuario.save();
+		res.json(usuarioAlmacenado);
+	} catch (error) {
+		console.log(error);
+	}
 };
 
 export {
@@ -569,4 +638,7 @@ export {
 	nuevoUsuarioPefilAdmin,
 	eliminarUsuarioCliente,
 	listadoTodosUsuarios,
+	cambiarPassApp,
+	actualizarEmail,
+	actualizarNombreYApellido,
 };

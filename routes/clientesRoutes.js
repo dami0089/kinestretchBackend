@@ -51,8 +51,8 @@ router.route("/:id").put(checkAuth, editarCliente);
 
 router.put("/editar-desde-perfil/:id", checkAuth, editarClientePerfilCliente);
 
-router.get("/obtener/:id", checkAuth, obtenerCliente);
-router.get("/creditos-activos/:id", checkAuth, obtenerCreditosActivos);
+router.get("/obtener/:id", obtenerCliente);
+router.get("/creditos-activos/:id", obtenerCreditosActivos);
 router.get("/historial-creditos/:id", checkAuth, obtenerHistorialCreditos);
 router.get("/buscar/:id", checkAuth, obtenerUsuario);
 router.get("/clases-cliente/:id", checkAuth, obtenerUsuario);

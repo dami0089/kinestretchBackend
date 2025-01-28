@@ -101,7 +101,7 @@ router.post(
 
 router.post(
 	"/obtener-inasistencias/:id",
-	checkAuth,
+
 	verificarInasistenciasFuturas
 );
 
@@ -110,10 +110,10 @@ router.post("/obtener-asistencias/:id", checkAuth, esPrimeraClase);
 router.post("/obtener-clase/:id", checkAuth, obtenerClase);
 
 router.post("/asignar-cliente-a-clase/:id", checkAuth, asignarClienteaClase);
-router.post("/asignar-recupero/:id", checkAuth, recuperoClase);
+router.post("/asignar-recupero/:id", recuperoClase);
 router.post("/asignar-recupero-admin/:id", checkAuth, asignarRecuperoAdmin);
 
-router.get("/obtener-clases-cliente/:id", checkAuth, obtenerClasesCliente);
+router.get("/obtener-clases-cliente/:id", obtenerClasesCliente);
 
 router.get("/consultar-primer-clase/:id", checkAuth, consultarPrimerclase);
 router.get(
@@ -134,7 +134,7 @@ router.get(
 	obtenerClasesClienteAdmin
 );
 
-router.post("/obtener-clases-ordenadas/:id", checkAuth, obtenerClasesOrdenadas);
+router.post("/obtener-clases-ordenadas/:id", obtenerClasesOrdenadas);
 
 router.post("/cancelar-clase/:id", checkAuth, cancelarClase);
 router.post("/verificar-inasistencia/:id", checkAuth, verificarInasistencia);
@@ -164,7 +164,7 @@ router.put("/desactivar-activar/:id", checkAuth, desactivarSede);
 router.post("/cancelar-clase-cliente/:id", checkAuth, cancelarClaseCliente);
 router.post(
 	"/cancelar-clase-cliente-nuevo/:id",
-	checkAuth,
+
 	cancelarClaseClienteNuevo
 );
 router.post("/cancelar-clase-general/:id", checkAuth, cancelarClaseGeneral);
@@ -197,7 +197,7 @@ router.delete("/eliminar-clase/:id", checkAuth, eliminarClase);
 
 router.post("/encuesta-recibida/:id", encuestaRecibida);
 
-router.get("/obtener-clases-mes/:id", checkAuth, obtenerClasesDelMes);
+router.get("/obtener-clases-mes/:id", obtenerClasesDelMes);
 
 router.get(
 	"/obtener-clases-mes-por-clase/:id",

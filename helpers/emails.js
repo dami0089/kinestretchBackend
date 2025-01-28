@@ -152,7 +152,7 @@ export const emailProfesorClaseAsignada = async (datos) => {
 };
 
 export const emailRegistroNuevo = async (datos) => {
-	const { email, nombre, token } = datos;
+	const { email, nombre } = datos;
 
 	const hemail = process.env.EMAIL;
 	const hpass = process.env.PASSWORD;

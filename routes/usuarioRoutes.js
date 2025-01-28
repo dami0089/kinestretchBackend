@@ -28,6 +28,9 @@ import {
 	nuevoUsuarioPefilAdmin,
 	eliminarUsuarioCliente,
 	listadoTodosUsuarios,
+	cambiarPassApp,
+	actualizarEmail,
+	actualizarNombreYApellido,
 } from "../controllers/usuarioController.js";
 
 import checkAuth from "../middleware/checkAuth.js";
@@ -47,9 +50,10 @@ router.get("/listado", checkAuth, obtenerUsuarios);
 router.get("/perfil", checkAuth, perfil);
 router.delete("/eliminar-usuario/:id", checkAuth, eliminarUsuario);
 router.get("/consultar-autenticacion", checkAuth, consultarAutenticacion);
-
+router.post("/actualizar-nombre-apellido/:id", actualizarNombreYApellido);
 router.get("/obtener-dash/", checkAuth, datosDash);
-
+router.post("/cambiar-password/:id", cambiarPassApp);
+router.post("/actualizar-email/:id", actualizarEmail);
 router.get("/obtener-terminos", obtenerTerminosyCondiciones);
 router.post("/nuevos-terminos", checkAuth, nuevosTerminos);
 router.post("/editar-terminos/:id", checkAuth, editarTerminos);

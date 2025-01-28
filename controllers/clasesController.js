@@ -901,6 +901,8 @@ const obtenerClasesOrdenadas = async (req, res) => {
 		// Ordenar las clases por hora de inicio
 		clasesDisponibles.sort((a, b) => a.horarioInicio - b.horarioInicio);
 
+		console.log(clasesDisponibles);
+
 		res.json(clasesDisponibles);
 	} catch (error) {
 		console.error(error);
@@ -1429,6 +1431,7 @@ const obtenerClasesDelMes = async (req, res) => {
 				});
 			});
 		}
+		console.log(clasesConFechas);
 
 		res.json(clasesConFechas);
 	} catch (error) {
@@ -1506,50 +1509,6 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 
 			await nuevaInasistencia.save();
 		} else {
-			// const diaSemana = clase.diaDeLaSemana;
-			// const hoy = moment().tz("America/Argentina/Buenos_Aires");
-
-			// Encontrar el primer día específico del mes (por ejemplo, primer lunes)
-			// const inicioMes = moment().startOf("month");
-			// let primeraClaseMes = inicioMes.clone();
-
-			// while (primeraClaseMes.day() !== diaSemana) {
-			// 	primeraClaseMes.add(1, "day");
-			// }
-
-			// Encontrar el último día específico del mes (por ejemplo, último lunes)
-			// const ultimoDiaDelMes = moment().endOf("month").startOf("day");
-			// while (ultimoDiaDelMes.day() !== diaSemana) {
-			// 	ultimoDiaDelMes.subtract(1, "day");
-			// }
-
-			// Verificar si hoy es la primera o última clase del mes y enviar mensaje si corresponde
-			// 			if (
-			// 				hoy.isSame(primeraClaseMes, "day") ||
-			// 				hoy.isSame(ultimoDiaDelMes, "day")
-			// 			) {
-			// 				const esPrimeraClase = hoy.isSame(primeraClaseMes, "day");
-			// 				const mensaje = `Estimado/a ${cliente.nombre},
-
-			// Esperamos que te encuentres muy bien. Te escribimos porque hemos registrado una inasistencia en tu ${
-			// 					esPrimeraClase ? "primera" : "última"
-			// 				} clase del mes. Queremos asegurarnos de que todo esté bien contigo y saber si continuarás asistiendo a nuestras clases para mantener tu cupo reservado.
-
-			// Por favor, contáctanos a la brevedad a través de nuestro WhatsApp para confirmar tu asistencia.
-
-			// Agradecemos tu comprensión y esperamos verte pronto.
-
-			// Saludos cordiales,
-			// Equipo Kinestretch`;
-			// 				const mensajeConSaltos = mensaje.replace(/\n/g, "<br>");
-
-			// 				await mensajeGrupaloIndividual(
-			// 					cliente.email,
-			// 					mensajeConSaltos,
-			// 					"Registramos una inasistencia!"
-			// 				);
-			// 			}
-
 			// Registrar la inasistencia sin importar si es la primera o última clase del mes
 			const nuevaInasistencia = new Inasistencias({
 				cliente: id,
@@ -1560,7 +1519,7 @@ const registrarInasistenciaPaginaProfesor = async (req, res) => {
 			const credito = await Creditos.findOne({ uso: idClase, cliente: id });
 
 			if (credito) {
-				credito.uso = null; // Asignar null en lugar de una cadena vacía
+				credito.uso = null;
 				await credito.save();
 			}
 
@@ -2153,7 +2112,7 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 		const error = new Error(
 			"Ya has cancelado una clase este mes y no se podrá recuperar."
 		);
-		return res.json({ msg1: error.message });
+		return res.status(500).json({ msg1: error.message });
 	}
 
 	// Registrar la inasistencia con la fecha proporcionada
@@ -2198,11 +2157,10 @@ const cancelarClaseClienteNuevo = async (req, res) => {
 
 	try {
 		await cliente.save();
-		const inasistenciaAlmacenada = await inasistencia.save();
+		await inasistencia.save();
+		emailClaseCancelada(infoEmail);
 
-		await emailClaseCancelada(infoEmail);
-
-		res.json({ msg2: "Gracias por avisarnos!" });
+		res.status(200).json({ msg2: "Gracias por avisarnos!" });
 	} catch (error) {
 		console.log(error);
 		res.status(500).json({ error: "Error al cancelar la clase." });
